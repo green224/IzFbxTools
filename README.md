@@ -1,0 +1,2 @@
+# ToonMeshEdgeMerger
+裏面押し出し法による輪郭線表示の、Solid辺による輪郭線断裂の対処
