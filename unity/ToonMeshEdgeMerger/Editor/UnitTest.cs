@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using Assert = UnityEngine.Assertions.Assert;
 
+namespace ToonMeshEdgeMerger {
+
 /**
  * ユニットテスト
  */
@@ -61,5 +63,7 @@ static class UnitTest {
 			);
 		}
 	}
-	
+
+}
+
 }

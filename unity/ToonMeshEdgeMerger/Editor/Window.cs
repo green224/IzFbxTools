@@ -4,6 +4,8 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
 
+namespace ToonMeshEdgeMerger {
+
 /**
  * トゥーン用の輪郭線が、ソリッド辺で途切れてしまう問題の対処を行うためのモジュール。
  * 途切れてしまう輪郭線部分に輪郭線用のポリゴンを仕込むことで、辺が途切れないようにする。
@@ -140,5 +142,7 @@ sealed class Window : EditorWindow {
 		a.z*b.x - a.x*b.z,
 		a.x*b.y - a.y*b.x
 	);
+
+}
 
 }
