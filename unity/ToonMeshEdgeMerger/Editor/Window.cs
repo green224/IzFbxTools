@@ -12,9 +12,9 @@ namespace ToonMeshEdgeMerger {
  */
 sealed class Window : EditorWindow {
 
-	Mesh _srcMesh = null;			//!< 変換対象のMesh
-	float _mergeLength = 0.00001f;	//!< マージ距離
-	string _log = null;				//!< 結果ログ
+	Mesh _srcMesh = null;					//!< 変換対象のMesh
+	float _mergeLength = 0.00001f;			//!< マージ距離
+	LogBuilder _log = new LogBuilder();		//!< 結果ログ
 
 	/** メニューコマンド */
 	[MenuItem("Tools/トゥーン輪郭線用 Solid辺融合")]
@@ -35,11 +35,11 @@ sealed class Window : EditorWindow {
 
 		// 結果ログ
 		EditorGUILayout.Space();
-		if ( !string.IsNullOrEmpty(_log) ) {
+		if ( _log.lineCnt != 0 ) {
 			using (new GUILayout.VerticalScope("box")) {
 				EditorGUILayout.SelectableLabel(
-					_log,
-					GUILayout.Height(EditorGUIUtility.singleLineHeight * 5)
+					_log.getResultStr(),
+					GUILayout.Height(EditorGUIUtility.singleLineHeight * _log.lineCnt)
 				);
 			}
 		}
@@ -47,6 +47,7 @@ sealed class Window : EditorWindow {
 
 	/** 出力処理本体 */
 	void build() {
+		_log.reset();
 
 		// 出力先パスを決定
 		var dstMeshPath = AssetDatabase.GetAssetPath( _srcMesh );
@@ -62,7 +63,8 @@ sealed class Window : EditorWindow {
 			dstMesh = new Mesh();
 			AssetDatabase.CreateAsset( dstMesh, dstMeshPath );
 		}
-		MeshCloner.clone( _srcMesh, dstMesh );
+		MeshCloner.clone(_srcMesh, dstMesh);
+		_log.beginOneProc(_srcMesh, dstMesh);
 
 		// 形状情報を生成
 		var topology = new Topology(dstMesh, _mergeLength);
@@ -79,7 +81,6 @@ sealed class Window : EditorWindow {
 		};
 
 		// エッジ部分の輪郭線を補強する
-		int mergedEdgeCnt = 0;
 		var newTris = dstMesh.GetTriangles(0).ToList();
 		var tgtEdges = new LinkedList<Topology.HalfEdge>(topology.edges);
 		for (var i=tgtEdges.First; i!=null; i=i.Next) {
@@ -129,11 +130,10 @@ sealed class Window : EditorWindow {
 			// 接続先を候補から除外
 			tgtEdges.Remove(otherEdge);
 			addCorner2( e, e, otherEdge );
-			++mergedEdgeCnt;
+			_log.countMergedEdge();
 		}
 
 		// コーナー部分の輪郭線を補強
-		int mergedCornerCnt = 0;
 		foreach (var i in cornerList) {
 
 			// コーナーか否か
@@ -181,7 +181,7 @@ sealed class Window : EditorWindow {
 				newTris.Add( vLst[j-1].v.index );
 				newTris.Add( vLst[j].v.index );
 			}
-			++mergedCornerCnt;
+			_log.countMergedCorner();
 		}
 
 		// 加工して保存
@@ -189,12 +189,7 @@ sealed class Window : EditorWindow {
 		AssetDatabase.SaveAssets();
 
 		// ログの生成
-		var sb = new System.Text.StringBuilder();
-		sb.AppendLine("成功");
-		sb.AppendLine("ポリゴン数: " + _srcMesh.triangles.Length/3 + " → " + dstMesh.triangles.Length/3);
-		sb.AppendLine("溶接エッジ数: " + mergedEdgeCnt);
-		sb.AppendLine("溶接コーナー数: " + mergedCornerCnt);
-		_log = sb.ToString();
+		_log.endOneProc( true );
 	}
 
 }
