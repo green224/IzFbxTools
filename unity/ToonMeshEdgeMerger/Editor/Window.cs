@@ -35,7 +35,14 @@ sealed class Window : EditorWindow {
 
 		// 結果ログ
 		EditorGUILayout.Space();
-		if ( _log != null ) EditorGUILayout.TextArea(_log);
+		if ( !string.IsNullOrEmpty(_log) ) {
+			using (new GUILayout.VerticalScope("box")) {
+				EditorGUILayout.SelectableLabel(
+					_log,
+					GUILayout.Height(EditorGUIUtility.singleLineHeight * 5)
+				);
+			}
+		}
 	}
 
 	/** 出力処理本体 */
@@ -60,7 +67,19 @@ sealed class Window : EditorWindow {
 		// 形状情報を生成
 		var topology = new Topology(dstMesh, _mergeLength);
 
-		// 輪郭線を補強する必要のあるエッジ一覧を構築
+		// コーナー情報の収集用処理
+		var cornerList = new Dictionary<List<Topology.Vertex>, List<Topology.HalfEdge>>();
+		Action<List<Topology.Vertex>, Topology.HalfEdge> addCorner = (v,e) => {
+			if ( cornerList.TryGetValue(v, out var eLst) )	eLst.Add( e );
+			else											cornerList.Add( v, new List<Topology.HalfEdge>(){e} );
+		};
+		Action<Topology.HalfEdge, Topology.HalfEdge, Topology.HalfEdge> addCorner2 = (tgt,e0,e1) => {
+			addCorner(tgt.vertex.samePos, e0); addCorner(tgt.vertex.samePos, e1);
+			addCorner(tgt.next.vertex.samePos, e0); addCorner(tgt.next.vertex.samePos, e1);
+		};
+
+		// エッジ部分の輪郭線を補強する
+		int mergedEdgeCnt = 0;
 		var newTris = dstMesh.GetTriangles(0).ToList();
 		var tgtEdges = new LinkedList<Topology.HalfEdge>(topology.edges);
 		for (var i=tgtEdges.First; i!=null; i=i.Next) {
@@ -84,25 +103,6 @@ sealed class Window : EditorWindow {
 			
 			// 頂点ごとの法線が、山折りであるか谷折りであるかをチェック
 			var edgeN = (e.next.vertex.pos - e.vertex.pos).normalized;
-//			var t = cross(edgeN, cross(e.face.center-e.vertex.pos, edgeN)).normalized;
-//			var s = cross(edgeN, t);
-//			Func<Vector3,float> getAgl = dir => ( Mathf.Atan2(dot(dir, s), dot(dir, t)) + Mathf.PI*2 ) % (Mathf.PI*2);
-//			var agl00 = getAgl(e.vertex.n);
-//			var agl01 = getAgl(e.next.vertex.n);
-//			var agl10 = getAgl(otherEdge.vertex.n);
-//			var agl11 = getAgl(otherEdge.next.vertex.n);
-//			var isYamaori0 = 0.01f < agl11 - agl00;
-//			var isYamaori1 = 0.01f < agl10 - agl01;
-//
-//			// 山折り部分のエッジである必要がある。谷折り部分のエッジは対象ではない
-//			if ( !isYamaori0 && !isYamaori1 ) continue;
-//
-//			{// エッジ部分に、ポリゴンを追加
-//				var (i0,i1,i2,i3) = (e.vertex.index, e.next.vertex.index, otherEdge.vertex.index, otherEdge.next.vertex.index);
-//				if (isYamaori0) { newTris.Add(i0); newTris.Add(i3); newTris.Add(i2); }
-//				if (isYamaori1) { newTris.Add(i0); newTris.Add(i2); newTris.Add(i1); }
-//			}
-
 			var t0 = cross(edgeN, cross(e.face.center-e.vertex.pos, edgeN)).normalized;
 			var t1 = cross(edgeN, cross(otherEdge.face.center-e.vertex.pos, edgeN)).normalized;
 			var s0 = cross(edgeN, t0);
@@ -115,11 +115,10 @@ sealed class Window : EditorWindow {
 				);
 			};
 
+			// 山折り部分のエッジである必要がある。谷折り部分のエッジは対象ではない
 			var isCrossing0 = isCrossingCheck( e.vertex.n, otherEdge.next.vertex.n );
 			var isCrossing1 = isCrossingCheck( e.next.vertex.n, otherEdge.vertex.n );
-
-			// 山折り部分のエッジである必要がある。谷折り部分のエッジは対象ではない
-			if ( isCrossing0 && isCrossing1 ) continue;
+			if ( isCrossing0 && isCrossing1 ) { addCorner2(e, null,null); continue; }
 
 			{// エッジ部分に、ポリゴンを追加
 				var (i0,i1,i2,i3) = (e.vertex.index, e.next.vertex.index, otherEdge.vertex.index, otherEdge.next.vertex.index);
@@ -129,11 +128,73 @@ sealed class Window : EditorWindow {
 
 			// 接続先を候補から除外
 			tgtEdges.Remove(otherEdge);
+			addCorner2( e, e, otherEdge );
+			++mergedEdgeCnt;
+		}
+
+		// コーナー部分の輪郭線を補強
+		int mergedCornerCnt = 0;
+		foreach (var i in cornerList) {
+
+			// コーナーか否か
+			if ( i.Value.Count <= 4 ) continue;
+
+			// 山折り部分と谷折り部分が共存しているコーナーについては、
+			// 簡単に溶接できるとは限らない。多くの場合、複雑な形状ゆえにポリゴンの追加のみではちゃんと溶接できない。
+			// したがってそういう箇所については何もしない
+			var isComplex = false;
+			foreach (var j in i.Value) {
+				if (j != null) continue;
+				isComplex = true;
+				break;
+			}
+			if ( isComplex ) continue;
+
+			// コーナーの向きを算出
+			var cornerDirZ = Vector3.zero;
+			foreach (var j in i.Key) {
+				cornerDirZ += j.n;
+			}
+			cornerDirZ.Normalize();
+
+			// コーナーの向きを軸の一つとする座標系の基底を構築
+			var cornerDirX = M.cross(cornerDirZ, new Vector3(1,0,0));
+			if (cornerDirX.sqrMagnitude < 0.00001f) {
+				cornerDirX = M.cross(cornerDirZ, new Vector3(0,1,0));
+			}
+			cornerDirX.Normalize();
+			var cornerDirY = M.cross(cornerDirZ, cornerDirX);
+
+			// コーナーを構築する頂点を、その方向順に並べる
+			var vLst = new List<(float theta, Topology.Vertex v)>();
+			foreach (var j in i.Key) {
+				var x = M.dot(j.n, cornerDirX);
+				var y = M.dot(j.n, cornerDirY);
+				var theta = Mathf.Atan2( y, x );
+				vLst.Add( (theta, j) );
+			}
+			vLst = vLst.OrderBy(a => a.theta).ToList();
+
+			// コーナー部分にポリゴンを追加
+			for (int j=2; j<vLst.Count; ++j) {
+				newTris.Add( vLst[0].v.index );
+				newTris.Add( vLst[j-1].v.index );
+				newTris.Add( vLst[j].v.index );
+			}
+			++mergedCornerCnt;
 		}
 
 		// 加工して保存
 		dstMesh.SetTriangles( newTris, 0 );		// どこでもいいと思うので適当に0番目のサブメッシュに追加
 		AssetDatabase.SaveAssets();
+
+		// ログの生成
+		var sb = new System.Text.StringBuilder();
+		sb.AppendLine("成功");
+		sb.AppendLine("ポリゴン数: " + _srcMesh.triangles.Length/3 + " → " + dstMesh.triangles.Length/3);
+		sb.AppendLine("溶接エッジ数: " + mergedEdgeCnt);
+		sb.AppendLine("溶接コーナー数: " + mergedCornerCnt);
+		_log = sb.ToString();
 	}
 
 	static float dot(Vector3 a,Vector3 b) => a.x*b.x + a.y*b.y + a.z*b.z;
