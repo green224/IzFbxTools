@@ -4,6 +4,8 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
 
+namespace ToonMeshEdgeMerger {
+
 /**
  * 形状情報
  */
@@ -116,5 +118,7 @@ sealed class Topology {
 		a.z*b.x - a.x*b.z,
 		a.x*b.y - a.y*b.x
 	);
+
+}
 
 }

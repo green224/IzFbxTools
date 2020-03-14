@@ -1,6 +1,8 @@
 using System;
 using UnityEngine;
 
+namespace ToonMeshEdgeMerger {
+
 /**
  * 数学関数群
  */
@@ -60,5 +62,7 @@ static class M {
 		// 2直線の進行方向が狭まる方向に向かっている場合は、交差
 		return 0 < dot( rot90(l0.dir), l1.dir ) * l0dt;
 	}
+
+}
 
 }

@@ -4,6 +4,8 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
 
+namespace ToonMeshEdgeMerger {
+
 /**
  * Meshをコピーするための機能。
  *
@@ -61,5 +63,7 @@ static class MeshCloner {
 		dstMesh.bindposes = srcMesh.bindposes;
 		dstMesh.bounds = srcMesh.bounds;
 	}
+
+}
 
 }
