@@ -84,7 +84,7 @@ sealed class Topology {
 			e12.vertex = v1;
 			e20.vertex = v2;
 			f.edge = e01;
-			f.n = cross(v2.pos-v0.pos, v1.pos-v0.pos).normalized;
+			f.n = M.cross(v2.pos-v0.pos, v1.pos-v0.pos).normalized;
 			f.center = (v0.pos+v1.pos+v2.pos) / 3;
 		}
 
@@ -112,12 +112,6 @@ sealed class Topology {
 			}
 		}
 	}
-
-	static Vector3 cross(Vector3 a,Vector3 b) => new Vector3(
-		a.y*b.z - a.z*b.y,
-		a.z*b.x - a.x*b.z,
-		a.x*b.y - a.y*b.x
-	);
 
 }
 
