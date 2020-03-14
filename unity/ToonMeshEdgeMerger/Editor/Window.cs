@@ -12,6 +12,7 @@ sealed class Window : EditorWindow {
 
 	Mesh _srcMesh = null;			//!< 変換対象のMesh
 	float _mergeLength = 0.00001f;	//!< マージ距離
+	string _log = null;				//!< 結果ログ
 
 	/** メニューコマンド */
 	[MenuItem("Tools/トゥーン輪郭線用 Solid辺融合")]
@@ -29,6 +30,10 @@ sealed class Window : EditorWindow {
 				build();
 			}
 		}
+
+		// 結果ログ
+		EditorGUILayout.Space();
+		if ( _log != null ) EditorGUILayout.TextArea(_log);
 	}
 
 	/** 出力処理本体 */
@@ -47,15 +52,8 @@ sealed class Window : EditorWindow {
 		if (dstMesh == null) {
 			dstMesh = new Mesh();
 			AssetDatabase.CreateAsset( dstMesh, dstMeshPath );
-
-			// 初回に限って、CopySerializedはなぜか二回やらないと正常にコピーできないので、ここで一度行っておく。
-			dstMesh.Clear();
-			EditorUtility.CopySerialized(_srcMesh, dstMesh);
 		}
-
-		// 出力先に元データをコピー
-		dstMesh.Clear();		// CopySerializedは一回Clearしないと不思議とエラーになる。参照：https://answers.unity.com/questions/678967/why-meshes-require-a-restart-when-using-copyserial.html
-		EditorUtility.CopySerialized(_srcMesh, dstMesh);
+		MeshCloner.clone( _srcMesh, dstMesh );
 
 		// 形状情報を生成
 		var topology = new Topology(dstMesh, _mergeLength);
@@ -84,23 +82,47 @@ sealed class Window : EditorWindow {
 			
 			// 頂点ごとの法線が、山折りであるか谷折りであるかをチェック
 			var edgeN = (e.next.vertex.pos - e.vertex.pos).normalized;
-			var t = cross(edgeN, cross(e.face.center-e.vertex.pos, edgeN)).normalized;
-			var s = cross(edgeN, t);
-			Func<Vector3,float> getAgl = dir => ( Mathf.Atan2(dot(dir, s), dot(dir, t)) + Mathf.PI*2 ) % (Mathf.PI*2);
-			var agl00 = getAgl(e.vertex.n);
-			var agl01 = getAgl(e.next.vertex.n);
-			var agl10 = getAgl(otherEdge.vertex.n);
-			var agl11 = getAgl(otherEdge.next.vertex.n);
-			var isYamaori0 = 0.01f < agl11 - agl00;
-			var isYamaori1 = 0.01f < agl10 - agl01;
+//			var t = cross(edgeN, cross(e.face.center-e.vertex.pos, edgeN)).normalized;
+//			var s = cross(edgeN, t);
+//			Func<Vector3,float> getAgl = dir => ( Mathf.Atan2(dot(dir, s), dot(dir, t)) + Mathf.PI*2 ) % (Mathf.PI*2);
+//			var agl00 = getAgl(e.vertex.n);
+//			var agl01 = getAgl(e.next.vertex.n);
+//			var agl10 = getAgl(otherEdge.vertex.n);
+//			var agl11 = getAgl(otherEdge.next.vertex.n);
+//			var isYamaori0 = 0.01f < agl11 - agl00;
+//			var isYamaori1 = 0.01f < agl10 - agl01;
+//
+//			// 山折り部分のエッジである必要がある。谷折り部分のエッジは対象ではない
+//			if ( !isYamaori0 && !isYamaori1 ) continue;
+//
+//			{// エッジ部分に、ポリゴンを追加
+//				var (i0,i1,i2,i3) = (e.vertex.index, e.next.vertex.index, otherEdge.vertex.index, otherEdge.next.vertex.index);
+//				if (isYamaori0) { newTris.Add(i0); newTris.Add(i3); newTris.Add(i2); }
+//				if (isYamaori1) { newTris.Add(i0); newTris.Add(i2); newTris.Add(i1); }
+//			}
+
+			var t0 = cross(edgeN, cross(e.face.center-e.vertex.pos, edgeN)).normalized;
+			var t1 = cross(edgeN, cross(otherEdge.face.center-e.vertex.pos, edgeN)).normalized;
+			var s0 = cross(edgeN, t0);
+			Func<Vector3,Vector3,bool> isCrossingCheck = (n0, n1) => {
+				var a = new Vector2(dot(n0, t0), dot(n0, s0));
+				var b = new Vector2(dot(n1, t0), dot(n1, s0));
+				return M.isCrossing(
+					new M.HalfLine( a, new Vector2(1, 0) ),
+					new M.HalfLine( b, new Vector2(dot(t1, t0), dot(t1, s0)) )
+				);
+			};
+
+			var isCrossing0 = isCrossingCheck( e.vertex.n, otherEdge.next.vertex.n );
+			var isCrossing1 = isCrossingCheck( e.next.vertex.n, otherEdge.vertex.n );
 
 			// 山折り部分のエッジである必要がある。谷折り部分のエッジは対象ではない
-			if ( !isYamaori0 && !isYamaori1 ) continue;
+			if ( isCrossing0 && isCrossing1 ) continue;
 
 			{// エッジ部分に、ポリゴンを追加
 				var (i0,i1,i2,i3) = (e.vertex.index, e.next.vertex.index, otherEdge.vertex.index, otherEdge.next.vertex.index);
-				if (isYamaori0) newTris.Add(i0); newTris.Add(i3); newTris.Add(i2);
-				if (isYamaori1) newTris.Add(i0); newTris.Add(i2); newTris.Add(i1);
+				if (!isCrossing0) { newTris.Add(i0); newTris.Add(i3); newTris.Add(i2); }
+				if (!isCrossing1) { newTris.Add(i0); newTris.Add(i2); newTris.Add(i1); }
 			}
 
 			// 接続先を候補から除外
