@@ -103,15 +103,15 @@ sealed class Window : EditorWindow {
 			
 			// 頂点ごとの法線が、山折りであるか谷折りであるかをチェック
 			var edgeN = (e.next.vertex.pos - e.vertex.pos).normalized;
-			var t0 = cross(edgeN, cross(e.face.center-e.vertex.pos, edgeN)).normalized;
-			var t1 = cross(edgeN, cross(otherEdge.face.center-e.vertex.pos, edgeN)).normalized;
-			var s0 = cross(edgeN, t0);
+			var t0 = M.cross(edgeN, M.cross(e.face.center-e.vertex.pos, edgeN)).normalized;
+			var t1 = M.cross(edgeN, M.cross(otherEdge.face.center-e.vertex.pos, edgeN)).normalized;
+			var s0 = M.cross(edgeN, t0);
 			Func<Vector3,Vector3,bool> isCrossingCheck = (n0, n1) => {
-				var a = new Vector2(dot(n0, t0), dot(n0, s0));
-				var b = new Vector2(dot(n1, t0), dot(n1, s0));
+				var a = new Vector2(M.dot(n0, t0), M.dot(n0, s0));
+				var b = new Vector2(M.dot(n1, t0), M.dot(n1, s0));
 				return M.isCrossing(
 					new M.HalfLine( a, new Vector2(1, 0) ),
-					new M.HalfLine( b, new Vector2(dot(t1, t0), dot(t1, s0)) )
+					new M.HalfLine( b, new Vector2(M.dot(t1, t0), M.dot(t1, s0)) )
 				);
 			};
 
@@ -196,13 +196,6 @@ sealed class Window : EditorWindow {
 		sb.AppendLine("溶接コーナー数: " + mergedCornerCnt);
 		_log = sb.ToString();
 	}
-
-	static float dot(Vector3 a,Vector3 b) => a.x*b.x + a.y*b.y + a.z*b.z;
-	static Vector3 cross(Vector3 a,Vector3 b) => new Vector3(
-		a.y*b.z - a.z*b.y,
-		a.z*b.x - a.x*b.z,
-		a.x*b.y - a.y*b.x
-	);
 
 }
 
