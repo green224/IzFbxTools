@@ -12,9 +12,38 @@ namespace ToonMeshEdgeMerger {
  */
 sealed class Window : EditorWindow {
 
+	/** GUIStyle定義 */
+	static class Styles {
+		public static GUIContent[] tabToggles { get {
+			return _tabToggles ?? ( _tabToggles = new [] {"Mesh単体", "FBX全体"}.Select(x => new GUIContent(x)).ToArray() );
+		} }
+		public static readonly GUIStyle tabButtonStyle = "LargeButton";
+		public static readonly GUI.ToolbarButtonSize tabButtonSize = GUI.ToolbarButtonSize.Fixed;
+
+		static GUIContent[] _tabToggles = null;
+	}
+
+	enum TargetTypeTab {
+		SingleMesh,
+		FbxOverall,
+	}
+
+    TargetTypeTab _tgtTypeTab = TargetTypeTab.SingleMesh;
+
 	Mesh _srcMesh = null;					//!< 変換対象のMesh
+	GameObject _srcGObj = null;				//!< 変換対象のGameObject
 	float _mergeLength = 0.00001f;			//!< マージ距離
-	LogBuilder _log = new LogBuilder();		//!< 結果ログ
+	bool _isCombineMesh = true;				//!< メッシュを一つに結合する
+	bool _isOnlyCombineMesh = false;		//!< メッシュ結合のみを行う
+
+	/** 実行できるか否か */
+	bool isValidParam {get{
+		switch (_tgtTypeTab) {
+			case TargetTypeTab.SingleMesh: return _srcMesh != null;
+			case TargetTypeTab.FbxOverall: return _srcGObj != null;
+			default:throw new SystemException();
+		}
+	}}
 
 	/** メニューコマンド */
 	[MenuItem("Tools/トゥーン輪郭線用 Solid辺融合")]
@@ -24,22 +53,39 @@ sealed class Window : EditorWindow {
 
 	/** GUI描画処理 */
 	void OnGUI() {
-		_srcMesh = EditorGUILayout.ObjectField( "元Mesh", _srcMesh, typeof( Mesh ), false ) as Mesh;
+        // タブを描画する
+        using (new EditorGUILayout.HorizontalScope()) {
+            GUILayout.FlexibleSpace();
+            _tgtTypeTab = (TargetTypeTab)GUILayout.Toolbar((int)_tgtTypeTab, Styles.tabToggles, Styles.tabButtonStyle, Styles.tabButtonSize);
+            GUILayout.FlexibleSpace();
+        }
+
+		switch (_tgtTypeTab) {
+			case TargetTypeTab.SingleMesh:{
+				_srcMesh = EditorGUILayout.ObjectField( "元Mesh", _srcMesh, typeof( Mesh ), false ) as Mesh;
+			}break;
+			case TargetTypeTab.FbxOverall:{
+				_srcGObj = EditorGUILayout.ObjectField( "元FBX", _srcGObj, typeof( GameObject ), false ) as GameObject;
+				_isCombineMesh = EditorGUILayout.Toggle( "メッシュを一つに結合", _isCombineMesh );
+				if (_isCombineMesh)
+					_isOnlyCombineMesh = EditorGUILayout.Toggle( "メッシュ結合のみを実行", _isOnlyCombineMesh );
+			}break;
+			default:throw new SystemException();
+		}
 		_mergeLength = EditorGUILayout.FloatField( "融合距離", _mergeLength );
 
-		using (new EditorGUI.DisabledGroupScope(_srcMesh == null)) {
-			if (GUILayout.Button("実行")) {
-				build();
-			}
+		using (new EditorGUI.DisabledGroupScope( !isValidParam )) {
+			if (GUILayout.Button("実行")) build();
 		}
 
 		// 結果ログ
 		EditorGUILayout.Space();
-		if ( _log.lineCnt != 0 ) {
+		var log = Log.instance;
+		if ( log.lineCnt != 0 ) {
 			using (new GUILayout.VerticalScope("box")) {
 				EditorGUILayout.SelectableLabel(
-					_log.getResultStr(),
-					GUILayout.Height(EditorGUIUtility.singleLineHeight * _log.lineCnt)
+					log.getResultStr(),
+					GUILayout.Height(EditorGUIUtility.singleLineHeight * log.lineCnt)
 				);
 			}
 		}
@@ -47,26 +93,82 @@ sealed class Window : EditorWindow {
 
 	/** 出力処理本体 */
 	void build() {
-		_log.reset();
+		Log.instance.reset();
 
-		// 出力先パスを決定
-		var dstMeshPath = AssetDatabase.GetAssetPath( _srcMesh );
-		dstMeshPath =
-			dstMeshPath.Substring(
-				0,
-				dstMeshPath.Length - System.IO.Path.GetExtension(dstMeshPath).Length
-			) + " (EdgeMerged)" + _srcMesh.name + ".asset";
+		switch (_tgtTypeTab) {
+			case TargetTypeTab.SingleMesh:{
 
-		// 出力先を読み込む
-		var dstMesh = AssetDatabase.LoadAssetAtPath(dstMeshPath, typeof(Mesh)) as Mesh;
-		if (dstMesh == null) {
-			dstMesh = new Mesh();
-			AssetDatabase.CreateAsset( dstMesh, dstMeshPath );
+				// 1メッシュに対してエッジ融合処理を行う
+				procOneMeshEdgeMerge(_srcMesh, _mergeLength);
+
+			}break;
+			case TargetTypeTab.FbxOverall:{
+
+				// 出力先を読み込む
+//				Debug.Log(PrefabUtility.GetPrefabType( _srcGObj ));throw new SystemException();
+//				var srcPath = AssetDatabase.GetAssetPath( _srcGObj );
+//				var dstObj = PrefabUtility.LoadPrefabContents( srcPath );
+//				PrefabUtility.UnpackPrefabInstance(dstObj, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
+				var dstObj = Instantiate( _srcGObj );
+				var name = dstObj.name;
+				dstObj.name = name.Substring(0, name.Length - 7);
+
+				// プレファブ全体に対してメッシュ結合を行う
+				if (_isCombineMesh) {
+					var dstMesh = getDstMesh( getDstPath(_srcGObj, ".asset") );
+					MeshCombiner.combine(dstObj, dstMesh);
+				}
+
+				// プレファブ全体に対してエッジ融合処理を行う
+				if (!_isOnlyCombineMesh) {
+					var dstMeshes = MeshComponentWrapper.getMeshComponentsInChildren(dstObj);
+					foreach (var i in dstMeshes) {
+						var dstMesh = procOneMeshEdgeMerge(i.mesh, _mergeLength);
+						i.mesh = dstMesh;
+					}
+				}
+
+				// 出力
+				var dstPath = getDstPath(_srcGObj, ".prefab");
+				PrefabUtility.SaveAsPrefabAsset(dstObj, dstPath, out var success);
+				DestroyImmediate(dstObj);
+				if (!success) throw new SystemException();
+
+			}break;
+			default:throw new SystemException();
 		}
 
-		// 1メッシュに対して処理を実施
-		EdgeMerger.proc( _srcMesh, dstMesh, _log, _mergeLength );
 		AssetDatabase.SaveAssets();
+	}
+
+	/** 出力先パスを決定する */
+	static string getDstPath(UnityEngine.Object srcObj, string ext) {
+		var srcPath = AssetDatabase.GetAssetPath( srcObj );
+		var srcName = srcObj.name;
+		return
+			srcPath.Substring(
+				0,
+				srcPath.Length - System.IO.Path.GetExtension(srcPath).Length
+			) + " (EdgeMerged)" + srcName + ext;
+	}
+
+	// Meshの出力先を読み込む
+	static Mesh getDstMesh( Mesh srcMesh ) => getDstMesh( getDstPath(srcMesh, ".asset") );
+	static Mesh getDstMesh( string path ) {
+		var ret = AssetDatabase.LoadAssetAtPath(path, typeof(Mesh)) as Mesh;
+		if (ret == null) {
+			ret = new Mesh();
+			AssetDatabase.CreateAsset( ret, path );
+		}
+
+		return ret;
+	}
+
+	/** 1メッシュに対してエッジ融合処理を行う */
+	static Mesh procOneMeshEdgeMerge(Mesh srcMesh, float mergeLength) {
+		var dstMesh = getDstMesh(srcMesh);
+		EdgeMerger.proc( srcMesh, dstMesh, mergeLength );
+		return dstMesh;
 	}
 
 }
