@@ -12,10 +12,11 @@ namespace ToonMeshEdgeMerger {
 static class EdgeMerger {
 
 	/** 出力処理 */
-	public static void proc(Mesh srcMesh, Mesh dstMesh, LogBuilder log, float mergeLength) {
+	public static void proc(Mesh srcMesh, Mesh dstMesh, float mergeLength) {
 
 		MeshCloner.clone(srcMesh, dstMesh);
-		log.beginOneProc(srcMesh, dstMesh);
+		var log = Log.instance;
+		log.beginOneEdgeMerge();
 
 		// 形状情報を生成
 		var topology = new Topology(dstMesh, mergeLength);
@@ -139,7 +140,7 @@ static class EdgeMerger {
 		dstMesh.SetTriangles( newTris, 0 );		// どこでもいいと思うので適当に0番目のサブメッシュに追加
 
 		// ログの生成
-		log.endOneProc( true );
+		log.endOneEdgeMerge( true, srcMesh, dstMesh );
 	}
 
 }
