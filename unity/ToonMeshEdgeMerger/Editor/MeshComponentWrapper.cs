@@ -20,8 +20,6 @@ sealed class MeshComponentWrapper {
 	readonly public SkinnedMeshRenderer skMeshRdr;
 	readonly public Matrix4x4 l2wMtx;
 
-//	readonly public Transform[] bones;
-
 	/** メッシュデータ */
 	public Mesh mesh {
 		get => (meshFlt==null?null:meshFlt.sharedMesh) ?? (skMeshRdr==null?null:skMeshRdr.sharedMesh);
@@ -37,6 +35,18 @@ sealed class MeshComponentWrapper {
 		set {
 			if (meshRdr!=null) meshRdr.sharedMaterials = value;
 			if (skMeshRdr!=null) skMeshRdr.sharedMaterials = value;
+		}
+	}
+
+	/** ボーン情報 */
+	public Transform[] bones {
+		get => skMeshRdr==null ? Array.Empty<Transform>() : skMeshRdr.bones;
+		set {
+			if (skMeshRdr==null) {
+				if (value.Length == 0) return;
+				throw new SystemException();
+			}
+			skMeshRdr.bones = value;
 		}
 	}
 

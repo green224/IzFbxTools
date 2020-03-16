@@ -7,125 +7,191 @@ using System.Linq;
 namespace ToonMeshEdgeMerger {
 
 /**
-* 複数Meshを結合するための機能。
-*/
+ * 複数Meshを結合するための機能。
+ * UnityのCombineMeshは、ボーンやサブメッシュを考慮しないので、
+ * 自前でちゃんとした結合を行う。
+ */
 static class MeshCombiner {
 
-	/** 結合前オブジェクトの情報 */
-	public sealed class SrcData {
+	// ------------------------------------- public メンバ --------------------------------------------
+
+	/** 1オブジェクトの情報 */
+	public sealed class MeshObject {
 		public Mesh mesh;
 		public Material[] matLst;
+		public Transform[] bones;
 		public Matrix4x4 l2wMtx;
-	}
 
-	/** 結合後オブジェクトの情報 */
-	public sealed class Result {
-		public Mesh mesh;
-		public Material[] matLst;
-	}
+		/** 空の状態か否か */
+		public bool isEmpty => matLst.Length==0 && mesh.subMeshCount==1 && mesh.vertexCount==0;
 
-	/**
-	 * 結合処理。Meshを個別に指定して結合を行う
-	 * 参考：https://answers.unity.com/questions/196649/combinemeshes-with-different-materials.html
-	 */
-	public static Result combine( SrcData[] srcMeshes, Mesh dstMesh ) {
+		/** 中身を空に初期化する */
+		public void reset() {
+			mesh.Clear();
+			mesh.bindposes = new Matrix4x4[0];		// Bindposes配列はClearしても消えないので手動で消す
+			matLst = new Material[0];
+			bones = new Transform[0];
+			l2wMtx = Matrix4x4.identity;
+		}
 
-		var matLst = new List<Material>();
-		var ciLists = new List<List<CombineInstance>>();
-
-		foreach (var i in srcMeshes) {
-
-			for (int s = 0; s < i.mesh.subMeshCount; s++) {
-
-				int matIdx = -1;
-				for (int j = 0; j < matLst.Count; ++j) {
-					if ( matLst[j].name != i.matLst[s].name ) continue;
-					matIdx = j;
-					break;
+		/** ちゃんとしたデータかチェックを行う */
+		public bool validate() {
+			// マテリアル数とサブメッシュ数はちゃんと合わせておく
+			if (matLst.Length != mesh.subMeshCount) {
+				if (!isEmpty) {		// ただし、reset直後はどうしてもサブメッシュ数が1になってしまうので、その場合は例外とする
+					Debug.LogError(
+						"マテリアル数とサブメッシュ数が異なる:name=" + mesh.name
+						+ ",matCount=" + matLst.Length + ",submeshCount=" + mesh.subMeshCount
+					);
+					return false;
 				}
-
-				if (matIdx == -1) {
-					matLst.Add(i.matLst[s]);
-					matIdx = matLst.Count - 1;
-				}
-				ciLists.Add(new List<CombineInstance>());
-
-				var ci = new CombineInstance();
-				ci.transform = i.l2wMtx;
-				ci.subMeshIndex = s;
-				ci.mesh = i.mesh;
-				ciLists[matIdx].Add(ci);
 			}
+
+			// ブレンドシェイプ持ちのメッシュは扱えない
+			if (mesh.blendShapeCount != 0) {
+				Debug.LogError("BlendShapeが含まれている:name=" + mesh.name);
+				return false;
+			}
+
+			// バインドポーズ情報はボーン数分だけちゃんとあるようにする事
+			if (mesh.bindposes.Length != bones.Length) {
+				Debug.LogError(
+					"Bindposes情報の数がボーン数と異なる:name=" + mesh.name
+					+ ",bindposeCount=" + mesh.bindposes.Length + ",boneCount=" + bones.Length
+				);
+				return false;
+			}
+
+			return true;
 		}
 
-		// Combine by material index into per-material meshes
-		// also, Create CombineInstance array for next step
-		var meshes = new Mesh[matLst.Count];
-		var ciLst = new CombineInstance[matLst.Count];
-
-		for (int m=0; m<matLst.Count; ++m) {
-			meshes[m] = new Mesh();
-			meshes[m].CombineMeshes(ciLists[m].ToArray(), true, true);
-
-			ciLst[m] = new CombineInstance();
-			ciLst[m].mesh = meshes[m];
-			ciLst[m].subMeshIndex = 0;
+		/** MeshComponentWrapperから生成する */
+		static public MeshObject generate(MeshComponentWrapper src) {
+			var ret = new MeshObject() {
+				mesh = src.mesh,
+				matLst = src.materials,
+				bones = src.bones,
+				l2wMtx = src.l2wMtx
+			};
+			if (ret.mesh.subMeshCount < ret.matLst.Length) {
+				// マテリアルが必要より多く設定されている。
+				// この場合はマテリアルの一致判定は可能なため、正常な範囲にトリムするだけでOK。
+				// 逆にマテリアルが足りない場合はマテリアルの一致判定ができないため、
+				// 何もせずに流して後でエラーにする。
+				Array.Resize( ref ret.matLst, ret.mesh.subMeshCount );
+			}
+			return ret;
 		}
-
-		// Combine into one
-		var ret = new Result();
-		ret.mesh = dstMesh;
-		ret.mesh.CombineMeshes(ciLst, false, false);
-
-		// Destroy other meshes
-		foreach (var oldMesh in meshes) {
-			oldMesh.Clear();
-			UnityEngine.Object.DestroyImmediate(oldMesh);
-		}
-
-		// Assign matLst
-		ret.matLst = matLst.ToArray();
-
-		// ログに追加
-		Log.instance.endCombineMesh(true, srcMeshes.Select(i=>i.mesh).ToArray(), dstMesh);
-
-		return ret;
 	}
 
-	/** 結合処理。GameObject全体に対して処理を行う */
-	static public void combine( GameObject targetGO, Mesh dstMesh ) {
+	/** MeshObject from を to へ結合する */
+	public static bool addTo(MeshObject from, MeshObject to ) {
+//		to.mesh.indexFormat = UnityEngine.Rendering.lndexFormat.UInt32;
+		if (!from.validate() || !to.validate()) return false;
+		if (from.isEmpty) return true;			// 無いと思うが、一応空を結合しようとした場合は何もしない
+
+		// 頂点数を変えると帰ってくる配列が変わってしまうので、加工前に元データを全部読み込む
+		var vertices = to.mesh.vertices;
+		var normals = to.mesh.normals;
+		var tangents = to.mesh.tangents;
+		var uv1 = to.mesh.uv;  var uv2 = to.mesh.uv2; var uv3 = to.mesh.uv3; var uv4 = to.mesh.uv4;
+		var uv5 = to.mesh.uv5; var uv6 = to.mesh.uv6; var uv7 = to.mesh.uv7; var uv8 = to.mesh.uv8;
+		var colors = to.mesh.colors;
+		var boneWgt = to.mesh.boneWeights.ToList();
+
+		// 位置・法線・接線の結合。双方のL2W行列を考慮して結合する
+		var oldToVertCnt = to.mesh.vertexCount;
+		var frm2toMtx = to.l2wMtx.inverse * from.l2wMtx;
+		to.mesh.vertices = vertices.Concat( from.mesh.vertices.Select(i=>frm2toMtx.MultiplyPoint(i)) ).ToArray();
+		to.mesh.normals = normals.Concat( from.mesh.normals.Select(i=>frm2toMtx.MultiplyVector(i)) ).ToArray();
+		to.mesh.tangents = tangents.Concat( from.mesh.tangents.Select(i=>{
+			var a = frm2toMtx.MultiplyVector(i);
+			return new Vector4(a.x, a.y, a.z, i.w);
+		}) ).ToArray();
+
+		// UV・カラーの結合
+		to.mesh.uv = uv1.Concat( from.mesh.uv ).ToArray();
+		to.mesh.uv2 = uv2.Concat( from.mesh.uv2 ).ToArray();
+		to.mesh.uv3 = uv3.Concat( from.mesh.uv3 ).ToArray();
+		to.mesh.uv4 = uv4.Concat( from.mesh.uv4 ).ToArray();
+		to.mesh.uv5 = uv5.Concat( from.mesh.uv5 ).ToArray();
+		to.mesh.uv6 = uv6.Concat( from.mesh.uv6 ).ToArray();
+		to.mesh.uv7 = uv7.Concat( from.mesh.uv7 ).ToArray();
+		to.mesh.uv8 = uv8.Concat( from.mesh.uv8 ).ToArray();
+		to.mesh.colors = colors.Concat( from.mesh.colors ).ToArray();
+
+		// ボーンの結合
+		var (bones, fromBoneIdxes) = combineDistinctArray( to.bones, from.bones );
+		to.bones = bones;
+
+		// ボーンウェイトの結合
+		foreach (var i in from.mesh.boneWeights) {
+			var a = i;
+			a.boneIndex0 = fromBoneIdxes[i.boneIndex0];
+			a.boneIndex1 = fromBoneIdxes[i.boneIndex1];
+			a.boneIndex2 = fromBoneIdxes[i.boneIndex2];
+			a.boneIndex3 = fromBoneIdxes[i.boneIndex3];
+			boneWgt.Add(a);
+		}
+		to.mesh.boneWeights = boneWgt.ToArray();
+
+		// バインドポーズの結合
+		// ここ、何も考えずにバインドポーズを上書きしているが、問題が生じたらなんらかの対処を行う
+		var bindposes = new Matrix4x4[bones.Length];
+		for (int i=0; i<to.mesh.bindposes.Length; ++i) bindposes[i] = to.mesh.bindposes[i];
+		for (int i=0; i<fromBoneIdxes.Length; ++i) bindposes[fromBoneIdxes[i]] = from.mesh.bindposes[i]*frm2toMtx.inverse;
+		to.mesh.bindposes = bindposes.ToArray();
+
+		// マテリアルの結合
+		var (matLst, fromMatIdxes) = combineDistinctArray( to.matLst, from.matLst );
+		to.matLst = matLst;
+
+		// ポリゴンの結合
+		var oldToSubMeshCnt = to.isEmpty ? 0 : to.mesh.subMeshCount;
+		to.mesh.subMeshCount = matLst.Length;
+		for (int i=0; i<from.mesh.subMeshCount; ++i) {
+			var sbIdx = fromMatIdxes[i];
+			var tri = from.mesh.GetTriangles(i).Select(a=>a+oldToVertCnt).ToList();
+			if (sbIdx < oldToSubMeshCnt)
+				to.mesh.SetTriangles(to.mesh.GetTriangles(sbIdx).Concat(tri).ToArray(), sbIdx);
+			else
+				to.mesh.SetTriangles(tri, sbIdx);
+		}
+
+		return true;
+	}
+
+	/** 結合処理。GameObject全体に対して処理を行う。dstは初期化される */
+	static public bool combine( GameObject targetGO, MeshObject dst ) {
 
 		// 結合元となるMesh情報を収集する。最も子供のTransformのものから順に格納する。
 		var srcMeshes = MeshComponentWrapper.getMeshComponentsInChildren(targetGO);
-		var isSkinned = false;
-		foreach (var i in srcMeshes)
-			if (i.gameObject.GetComponent<SkinnedMeshRenderer>()!=null) isSkinned=true;
 		var srcDataLst = srcMeshes
 			.Where( i => i.mesh.blendShapeCount==0 )	// BlendShapeがあるものは結合対象外
-			.Select( i => (
-				data : new SrcData(){
-					mesh = i.mesh,
-					matLst = i.materials,
-					l2wMtx = i.l2wMtx
-				},
-				trans : i.transform
-			) ).ToArray();
+			.Select( i => (data:MeshObject.generate(i), trans:i.transform) ).ToArray();
 
 		// 結合したメッシュを生成
-		var combined = combine( srcDataLst.Select(i=>i.data).ToArray(), dstMesh );
+		dst.reset();
+		var isSuccess = true;
+		foreach (var i in srcDataLst) isSuccess &= addTo(i.data, dst);
+
+		// ログに追加
+		Log.instance.endCombineMesh(isSuccess, srcDataLst.Select(i=>i.data.mesh).ToArray(), dst.mesh);
+		if (!isSuccess) return false;
 
 		// 結合したメッシュを表示するオブジェクトを追加
 		var combinedMeshObj = new GameObject("Combined");
 		combinedMeshObj.transform.SetParent( targetGO.transform, false );
-		if (isSkinned) {
-			var smr = combinedMeshObj.AddComponent<SkinnedMeshRenderer>();
-			smr.sharedMesh = combined.mesh;
-			smr.sharedMaterials = combined.matLst;
-		} else {
+		if (dst.bones.Length == 0) {
 			var mr = combinedMeshObj.AddComponent<MeshRenderer>();
 			var mf = combinedMeshObj.AddComponent<MeshFilter>();
-			mf.sharedMesh = combined.mesh;
-			mr.sharedMaterials = combined.matLst;
+			mf.sharedMesh = dst.mesh;
+			mr.sharedMaterials = dst.matLst;
+		} else {
+			var smr = combinedMeshObj.AddComponent<SkinnedMeshRenderer>();
+			smr.sharedMesh = dst.mesh;
+			smr.sharedMaterials = dst.matLst;
+			smr.bones = dst.bones;
 		}
 
 		// 結合前のオブジェクトを削除
@@ -143,8 +209,38 @@ static class MeshCombiner {
 				if (smr!=null) UnityEngine.Object.DestroyImmediate(smr);
 			}
 		}
+
+		return true;
 	}
 
+
+	// ------------------------------------- private メンバ --------------------------------------------
+
+	/**
+	 * それぞれに重複のない配列を二つ受け取り、重複なく1つに結合し、
+	 * 結合後の配列と、片方のインデックス変換マップを返す
+	 */
+	static (T[] ary, int[] bIdxMap) combineDistinctArray<T>(T[] a, T[] b) where T : class {
+		var retAry = a.ToList();
+		var bIdxMap = new int[ b.Length ];		// bを結合後に何番にふり直すかのマップ
+		for (int i=0; i<b.Length; ++i) {
+			bool alreadyContains = false;
+			for (int j=0; j<retAry.Count; ++j) {
+				if (retAry[j] != b[i]) continue;
+				bIdxMap[i] = j;
+				alreadyContains = true;
+				break;
+			}
+			if (!alreadyContains) {
+				bIdxMap[i] = retAry.Count;
+				retAry.Add(b[i]);
+			}
+		}
+		return (retAry.ToArray(), bIdxMap);
+	}
+
+
+	// --------------------------------------------------------------------------------------------------
 }
 
 }

@@ -116,11 +116,13 @@ sealed class Window : EditorWindow {
 				// プレファブ全体に対してメッシュ結合を行う
 				if (_isCombineMesh) {
 					var dstMesh = getDstMesh( getDstPath(_srcGObj, ".asset") );
-					MeshCombiner.combine(dstObj, dstMesh);
+					var dstMeshObj = new MeshCombiner.MeshObject() {mesh = dstMesh};
+					dstMeshObj.reset();
+					MeshCombiner.combine(dstObj, dstMeshObj);
 				}
 
 				// プレファブ全体に対してエッジ融合処理を行う
-				if (!_isOnlyCombineMesh) {
+				if (!_isCombineMesh || !_isOnlyCombineMesh) {
 					var dstMeshes = MeshComponentWrapper.getMeshComponentsInChildren(dstObj);
 					foreach (var i in dstMeshes) {
 						var dstMesh = procOneMeshEdgeMerge(i.mesh, _mergeLength);
