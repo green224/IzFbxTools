@@ -71,7 +71,13 @@ static class MeshCombiner {
 				mesh = src.mesh,
 				matLst = src.materials,
 				bones = src.bones,
-				l2wMtx = src.l2wMtx
+
+				// ここ、不思議なんだけどどうやらスキンメッシュの場合は
+				// ヒエラルキを無視して自分自身のTransformのみを見て変形するようになっているっぽい。
+				// したがって、結合時にも自分自身の変換行列のみの影響を受けるようにする
+				l2wMtx =
+					src.bones.Length==0 ? src.l2wMtx
+					: MeshComponentWrapper.getLocalMtx(src.transform)
 			};
 			if (ret.mesh.subMeshCount < ret.matLst.Length) {
 				// マテリアルが必要より多く設定されている。
