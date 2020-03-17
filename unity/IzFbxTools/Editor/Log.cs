@@ -3,7 +3,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ToonMeshEdgeMerger {
+namespace IzFbxTools {
 
 /**
  * ログを生成するためのモジュール

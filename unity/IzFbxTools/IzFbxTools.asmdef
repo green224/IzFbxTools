@@ -1,5 +1,5 @@
 {
-    "name": "ToonMeshEdgeMerger",
+    "name": "IzFbxTools",
     "references": [],
     "includePlatforms": [
         "Editor"
