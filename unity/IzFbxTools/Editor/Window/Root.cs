@@ -4,68 +4,41 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace IzFbxTools {
+namespace IzFbxTools.Window {
 
 /**
  * トゥーン用の輪郭線が、ソリッド辺で途切れてしまう問題の対処を行うためのモジュール。
  * 途切れてしまう輪郭線部分に輪郭線用のポリゴンを仕込むことで、辺が途切れないようにする。
  */
-sealed class Window : EditorWindow {
+sealed class Root : EditorWindow {
 
-	/** GUIStyle定義 */
-	static class Styles {
-		public static GUIContent[] tabToggles { get {
-			return _tabToggles ?? ( _tabToggles = new [] {"Mesh単体", "FBX全体"}.Select(x => new GUIContent(x)).ToArray() );
-		} }
-		public static readonly GUIStyle tabButtonStyle = "LargeButton";
-		public static readonly GUI.ToolbarButtonSize tabButtonSize = GUI.ToolbarButtonSize.Fixed;
-
-		static GUIContent[] _tabToggles = null;
-	}
-
-	enum TargetTypeTab {
-		SingleMesh,
-		FbxOverall,
-	}
-
-    TargetTypeTab _tgtTypeTab = TargetTypeTab.SingleMesh;
-
-	Mesh _srcMesh = null;					//!< 変換対象のMesh
-	GameObject _srcGObj = null;				//!< 変換対象のGameObject
+    TargetTab _tgtTab = new TargetTab();	//!< 目標タイプのタブ
 	float _mergeLength = 0.00001f;			//!< マージ距離
 	bool _isCombineMesh = true;				//!< メッシュを一つに結合する
 	bool _isOnlyCombineMesh = false;		//!< メッシュ結合のみを行う
+	LogViewer _logViewer = new LogViewer();	//!< ログ表示モジュール
 
 	/** 実行できるか否か */
 	bool isValidParam {get{
-		switch (_tgtTypeTab) {
-			case TargetTypeTab.SingleMesh: return _srcMesh != null;
-			case TargetTypeTab.FbxOverall: return _srcGObj != null;
-			default:throw new SystemException();
-		}
+		if (_tgtTab.target==null) return false;
+		return true;
 	}}
 
 	/** メニューコマンド */
-	[MenuItem("Tools/トゥーン輪郭線用 Solid辺融合")]
+	[MenuItem("Tools/IzFbxTools")]
 	static void create() {
-		GetWindow<Window>("トゥーン輪郭線用 Solid辺融合");
+		GetWindow<Root>("IzFbxTools");
 	}
 
 	/** GUI描画処理 */
 	void OnGUI() {
-        // タブを描画する
-        using (new EditorGUILayout.HorizontalScope()) {
-            GUILayout.FlexibleSpace();
-            _tgtTypeTab = (TargetTypeTab)GUILayout.Toolbar((int)_tgtTypeTab, Styles.tabToggles, Styles.tabButtonStyle, Styles.tabButtonSize);
-            GUILayout.FlexibleSpace();
-        }
+		// タブを描画する
+		_tgtTab.drawGUI();
 
-		switch (_tgtTypeTab) {
-			case TargetTypeTab.SingleMesh:{
-				_srcMesh = EditorGUILayout.ObjectField( "元Mesh", _srcMesh, typeof( Mesh ), false ) as Mesh;
+		switch (_tgtTab.mode) {
+			case TargetTab.Mode.Mesh:{
 			}break;
-			case TargetTypeTab.FbxOverall:{
-				_srcGObj = EditorGUILayout.ObjectField( "元FBX", _srcGObj, typeof( GameObject ), false ) as GameObject;
+			case TargetTab.Mode.Fbx:{
 				_isCombineMesh = EditorGUILayout.Toggle( "メッシュを一つに結合", _isCombineMesh );
 				if (_isCombineMesh)
 					_isOnlyCombineMesh = EditorGUILayout.Toggle( "メッシュ結合のみを実行", _isOnlyCombineMesh );
@@ -80,42 +53,34 @@ sealed class Window : EditorWindow {
 
 		// 結果ログ
 		EditorGUILayout.Space();
-		var log = Log.instance;
-		if ( log.lineCnt != 0 ) {
-			using (new GUILayout.VerticalScope("box")) {
-				EditorGUILayout.SelectableLabel(
-					log.getResultStr(),
-					GUILayout.Height(EditorGUIUtility.singleLineHeight * log.lineCnt)
-				);
-			}
-		}
+		_logViewer.drawGUI();
 	}
 
 	/** 出力処理本体 */
 	void build() {
 		Log.instance.reset();
 
-		switch (_tgtTypeTab) {
-			case TargetTypeTab.SingleMesh:{
+		switch (_tgtTab.mode) {
+			case TargetTab.Mode.Mesh:{
 
 				// 1メッシュに対してエッジ融合処理を行う
-				procOneMeshEdgeMerge(_srcMesh, _mergeLength);
+				procOneMeshEdgeMerge(_tgtTab.tgtMesh, _mergeLength);
 
 			}break;
-			case TargetTypeTab.FbxOverall:{
+			case TargetTab.Mode.Fbx:{
 
 				// 出力先を読み込む
-//				Debug.Log(PrefabUtility.GetPrefabType( _srcGObj ));throw new SystemException();
-//				var srcPath = AssetDatabase.GetAssetPath( _srcGObj );
+//				Debug.Log(PrefabUtility.GetPrefabType( _tgtTab.tgtGObj ));throw new SystemException();
+//				var srcPath = AssetDatabase.GetAssetPath( _tgtTab.tgtGObj );
 //				var dstObj = PrefabUtility.LoadPrefabContents( srcPath );
 //				PrefabUtility.UnpackPrefabInstance(dstObj, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
-				var dstObj = Instantiate( _srcGObj );
+				var dstObj = Instantiate( _tgtTab.tgtGObj );
 				var name = dstObj.name;
 				dstObj.name = name.Substring(0, name.Length - 7);
 
 				// プレファブ全体に対してメッシュ結合を行う
 				if (_isCombineMesh) {
-					var dstMesh = getDstMesh( getDstPath(_srcGObj, ".asset") );
+					var dstMesh = getDstMesh( getDstPath(_tgtTab.tgtGObj, ".asset") );
 					var dstMeshObj = new MeshCombiner.MeshObject() {mesh = dstMesh};
 					dstMeshObj.reset();
 					MeshCombiner.combine(dstObj, dstMeshObj);
@@ -131,7 +96,7 @@ sealed class Window : EditorWindow {
 				}
 
 				// 出力
-				var dstPath = getDstPath(_srcGObj, ".prefab");
+				var dstPath = getDstPath(_tgtTab.tgtGObj, ".prefab");
 				PrefabUtility.SaveAsPrefabAsset(dstObj, dstPath, out var success);
 				DestroyImmediate(dstObj);
 				if (!success) throw new SystemException();
@@ -151,7 +116,7 @@ sealed class Window : EditorWindow {
 			srcPath.Substring(
 				0,
 				srcPath.Length - System.IO.Path.GetExtension(srcPath).Length
-			) + " (EdgeMerged)" + srcName + ext;
+			) + " (Optimized)" + srcName + ext;
 	}
 
 	// Meshの出力先を読み込む
