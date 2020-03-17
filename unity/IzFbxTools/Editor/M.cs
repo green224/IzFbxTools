@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace ToonMeshEdgeMerger {
+namespace IzFbxTools {
 
 /**
  * 数学関数群

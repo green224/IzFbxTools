@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using Assert = UnityEngine.Assertions.Assert;
 
-namespace ToonMeshEdgeMerger {
+namespace IzFbxTools {
 
 /**
  * ユニットテスト

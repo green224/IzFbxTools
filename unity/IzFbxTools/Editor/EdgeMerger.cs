@@ -4,7 +4,7 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ToonMeshEdgeMerger {
+namespace IzFbxTools {
 
 /**
  * 指定メッシュのエッジ融合を行うコアモジュール

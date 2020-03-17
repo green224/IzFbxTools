@@ -4,7 +4,7 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ToonMeshEdgeMerger {
+namespace IzFbxTools {
 
 /**
  * Meshをコピーするための機能。
