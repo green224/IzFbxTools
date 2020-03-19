@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace IzFbxTools {
+namespace IzFbxTools.Core {
 
 /**
  * 数学関数群

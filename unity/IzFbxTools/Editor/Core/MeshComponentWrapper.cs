@@ -4,7 +4,7 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace IzFbxTools {
+namespace IzFbxTools.Core {
 
 /**
  * SkinnedMesh や MeshRenderer に対して、

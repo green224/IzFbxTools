@@ -3,7 +3,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace IzFbxTools {
+namespace IzFbxTools.Core {
 
 /**
  * ログを生成するためのモジュール

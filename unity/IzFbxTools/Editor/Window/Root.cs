@@ -13,9 +13,8 @@ namespace IzFbxTools.Window {
 sealed class Root : EditorWindow {
 
     TargetTab _tgtTab = new TargetTab();	//!< 目標タイプのタブ
-	float _mergeLength = 0.00001f;			//!< マージ距離
-	bool _isCombineMesh = true;				//!< メッシュを一つに結合する
-	bool _isOnlyCombineMesh = false;		//!< メッシュ結合のみを行う
+	PrmBlock_CombineMesh _pb_CombineMesh = new PrmBlock_CombineMesh(true);	//!< パラメータ メッシュ結合
+	PrmBlock_EdgeMerge _pb_EdgeMerge = new PrmBlock_EdgeMerge(true);			//!< パラメータ 輪郭線修正
 	LogViewer _logViewer = new LogViewer();	//!< ログ表示モジュール
 
 	/** 実行できるか否か */
@@ -35,19 +34,22 @@ sealed class Root : EditorWindow {
 		// タブを描画する
 		_tgtTab.drawGUI();
 
+		var isEnableAny = false;
 		switch (_tgtTab.mode) {
 			case TargetTab.Mode.Mesh:{
+				_pb_EdgeMerge.drawGUI();
+				isEnableAny |= _pb_EdgeMerge.isEnable;
 			}break;
 			case TargetTab.Mode.Fbx:{
-				_isCombineMesh = EditorGUILayout.Toggle( "メッシュを一つに結合", _isCombineMesh );
-				if (_isCombineMesh)
-					_isOnlyCombineMesh = EditorGUILayout.Toggle( "メッシュ結合のみを実行", _isOnlyCombineMesh );
+				_pb_CombineMesh.drawGUI();
+				_pb_EdgeMerge.drawGUI();
+				isEnableAny |= _pb_CombineMesh.isEnable;
+				isEnableAny |= _pb_EdgeMerge.isEnable;
 			}break;
 			default:throw new SystemException();
 		}
-		_mergeLength = EditorGUILayout.FloatField( "融合距離", _mergeLength );
 
-		using (new EditorGUI.DisabledGroupScope( !isValidParam )) {
+		using (new EditorGUI.DisabledGroupScope( !isValidParam || !isEnableAny )) {
 			if (GUILayout.Button("実行")) build();
 		}
 
@@ -58,84 +60,29 @@ sealed class Root : EditorWindow {
 
 	/** 出力処理本体 */
 	void build() {
-		Log.instance.reset();
+		Core.Log.instance.reset();
 
 		switch (_tgtTab.mode) {
-			case TargetTab.Mode.Mesh:{
-
-				// 1メッシュに対してエッジ融合処理を行う
-				procOneMeshEdgeMerge(_tgtTab.tgtMesh, _mergeLength);
-
-			}break;
-			case TargetTab.Mode.Fbx:{
-
-				// 出力先を読み込む
-//				Debug.Log(PrefabUtility.GetPrefabType( _tgtTab.tgtGObj ));throw new SystemException();
-//				var srcPath = AssetDatabase.GetAssetPath( _tgtTab.tgtGObj );
-//				var dstObj = PrefabUtility.LoadPrefabContents( srcPath );
-//				PrefabUtility.UnpackPrefabInstance(dstObj, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
-				var dstObj = Instantiate( _tgtTab.tgtGObj );
-				var name = dstObj.name;
-				dstObj.name = name.Substring(0, name.Length - 7);
-
-				// プレファブ全体に対してメッシュ結合を行う
-				if (_isCombineMesh) {
-					var dstMesh = getDstMesh( getDstPath(_tgtTab.tgtGObj, ".asset") );
-					var dstMeshObj = new MeshCombiner.MeshObject() {mesh = dstMesh};
-					dstMeshObj.reset();
-					MeshCombiner.combine(dstObj, dstMeshObj);
-				}
-
-				// プレファブ全体に対してエッジ融合処理を行う
-				if (!_isCombineMesh || !_isOnlyCombineMesh) {
-					var dstMeshes = MeshComponentWrapper.getMeshComponentsInChildren(dstObj);
-					foreach (var i in dstMeshes) {
-						var dstMesh = procOneMeshEdgeMerge(i.mesh, _mergeLength);
-						i.mesh = dstMesh;
-					}
-				}
-
-				// 出力
-				var dstPath = getDstPath(_tgtTab.tgtGObj, ".prefab");
-				PrefabUtility.SaveAsPrefabAsset(dstObj, dstPath, out var success);
-				DestroyImmediate(dstObj);
-				if (!success) throw new SystemException();
-
-			}break;
+			case TargetTab.Mode.Mesh:
+				Core.Root.procMesh(
+					_tgtTab.tgtMesh,
+					_pb_EdgeMerge.isEnable,
+					_pb_EdgeMerge.mergeLength
+				);
+				break;
+			case TargetTab.Mode.Fbx:
+				Core.Root.procFBX(
+					_tgtTab.tgtGObj,
+					_pb_CombineMesh.isEnable,
+					_pb_CombineMesh.dstMeshObjName,
+					_pb_EdgeMerge.isEnable,
+					_pb_EdgeMerge.mergeLength
+				);
+				break;
 			default:throw new SystemException();
 		}
 
 		AssetDatabase.SaveAssets();
-	}
-
-	/** 出力先パスを決定する */
-	static string getDstPath(UnityEngine.Object srcObj, string ext) {
-		var srcPath = AssetDatabase.GetAssetPath( srcObj );
-		var srcName = srcObj.name;
-		return
-			srcPath.Substring(
-				0,
-				srcPath.Length - System.IO.Path.GetExtension(srcPath).Length
-			) + " (Optimized)" + srcName + ext;
-	}
-
-	// Meshの出力先を読み込む
-	static Mesh getDstMesh( Mesh srcMesh ) => getDstMesh( getDstPath(srcMesh, ".asset") );
-	static Mesh getDstMesh( string path ) {
-		var ret = AssetDatabase.LoadAssetAtPath(path, typeof(Mesh)) as Mesh;
-		if (ret == null) {
-			ret = new Mesh();
-			AssetDatabase.CreateAsset( ret, path );
-		}
-
-		return ret;
-	}
-
-	/** 1メッシュに対してエッジ融合処理を行う */
-	static Mesh procOneMeshEdgeMerge(Mesh srcMesh, float mergeLength) {
-		var dstMesh = getDstMesh(srcMesh);
-		EdgeMerger.proc( srcMesh, dstMesh, mergeLength );
-		return dstMesh;
 	}
 
 }

@@ -11,6 +11,7 @@ namespace IzFbxTools.Window {
  */
 sealed class TargetTab {
 
+	// 目標タイプ
 	public enum Mode { Fbx, Mesh, }
     public Mode mode = Mode.Fbx;
 
@@ -26,10 +27,13 @@ sealed class TargetTab {
 
 	/** GUI描画処理 */
 	public void drawGUI() {
-        using (new EditorGUILayout.HorizontalScope()) {
-			EditorGUILayout.LabelField( "対象", GUILayout.Width(30) );
-            GUILayout.FlexibleSpace();
-            mode = (Mode)GUILayout.Toolbar((int)mode, Styles.tabToggles, Styles.tabButtonStyle, Styles.tabButtonSize);
+        using (new EditorGUILayout.VerticalScope("box")) {
+			using (new EditorGUILayout.HorizontalScope()) {
+	//			EditorGUILayout.LabelField( "対象", GUILayout.Width(30) );
+				GUILayout.FlexibleSpace();
+				mode = (Mode)GUILayout.Toolbar((int)mode, Styles.tabToggles, Styles.tabButtonStyle, Styles.tabButtonSize);
+				GUILayout.FlexibleSpace();
+			}
 
 			switch (mode) {
 				case Mode.Mesh:
@@ -40,7 +44,7 @@ sealed class TargetTab {
 					break;
 				default:throw new SystemException();
 			}
-        }
+		}
 	}
 
 	/** GUIStyle定義 */
