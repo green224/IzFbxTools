@@ -12,7 +12,7 @@ sealed class LogViewer {
 	/** GUI描画処理 */
 	public void drawGUI() {
 
-		var log = Log.instance;
+		var log = Core.Log.instance;
 		if ( log.lineCnt == 0 ) return;
 
 		using (var sv = new EditorGUILayout.ScrollViewScope(_logScrollPos, "box")) {

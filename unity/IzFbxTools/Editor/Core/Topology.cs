@@ -4,7 +4,7 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace IzFbxTools {
+namespace IzFbxTools.Core {
 
 /**
  * 形状情報

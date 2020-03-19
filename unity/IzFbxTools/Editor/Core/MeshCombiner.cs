@@ -4,7 +4,7 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace IzFbxTools {
+namespace IzFbxTools.Core {
 
 /**
  * 複数Meshを結合するための機能。
@@ -168,7 +168,11 @@ static class MeshCombiner {
 	}
 
 	/** 結合処理。GameObject全体に対して処理を行う。dstは初期化される */
-	static public bool combine( GameObject targetGO, MeshObject dst ) {
+	static public bool combine(
+		GameObject targetGO,
+		MeshObject dst,
+		string dstMeshObjName	//!< 結合後に生成されるプレファブ内の、メッシュ表示用のGameObjectの名前
+	) {
 
 		// 結合元となるMesh情報を収集する。最も子供のTransformのものから順に格納する。
 		var srcMeshes = MeshComponentWrapper.getMeshComponentsInChildren(targetGO);
@@ -186,7 +190,7 @@ static class MeshCombiner {
 		if (!isSuccess) return false;
 
 		// 結合したメッシュを表示するオブジェクトを追加
-		var combinedMeshObj = new GameObject("Combined");
+		var combinedMeshObj = new GameObject(dstMeshObjName);
 		combinedMeshObj.transform.SetParent( targetGO.transform, false );
 		if (dst.bones.Length == 0) {
 			var mr = combinedMeshObj.AddComponent<MeshRenderer>();

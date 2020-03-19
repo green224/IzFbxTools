@@ -56,9 +56,9 @@ static class UnitTest {
 			//	) UnityEngine.Debug.Log( "err:"+isCrossing+"/\np0=" + p0 + " -> " +dir0 + "\np1=" + p1 + " -> " +dir1 );
 			Assert.AreEqual(
 				isCrossing,
-				M.isCrossing(
-					new M.HalfLine(p0, dir0),
-					new M.HalfLine(p1, dir1)
+				Core.M.isCrossing(
+					new Core.M.HalfLine(p0, dir0),
+					new Core.M.HalfLine(p1, dir1)
 				)
 			);
 		}
