@@ -14,7 +14,7 @@ sealed class Root : EditorWindow {
 
     TargetTab _tgtTab = new TargetTab();	//!< 目標タイプのタブ
 	PrmBlock_CombineMesh _pb_CombineMesh = new PrmBlock_CombineMesh(true);	//!< パラメータ メッシュ結合
-	PrmBlock_EdgeMerge _pb_EdgeMerge = new PrmBlock_EdgeMerge(true);			//!< パラメータ 輪郭線修正
+	PrmBlock_EdgeMerge _pb_EdgeMerge = new PrmBlock_EdgeMerge(true);		//!< パラメータ 輪郭線修正
 	LogViewer _logViewer = new LogViewer();	//!< ログ表示モジュール
 
 	/** 実行できるか否か */

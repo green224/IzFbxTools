@@ -45,7 +45,7 @@ static class EdgeMerger {
 			foreach (var k in e.next.vertex.samePos) {
 				if (k==e.next.vertex) continue;
 
-				for (var j=k.edge; true;) {
+				if (k.edge!=null) for (var j=k.edge; true;) {
 					if (j.next.vertex.samePos?.Contains(e.vertex) ?? false) { otherEdge=j; break; }
 					j=j.left;
 					if (j==k.edge) break;
