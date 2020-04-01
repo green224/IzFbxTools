@@ -89,7 +89,7 @@ sealed class Topology {
 		}
 
 		// 一応バリデートをかけておく
-		foreach (var i in verts) if (i.edge.vertex!=i) Debug.LogError("error:" + i.index);
+		foreach (var i in verts) if (i.edge!=null && i.edge.vertex!=i) Debug.LogError("error:" + i.index);
 		foreach (var i in edges) {
 			if (i.pair!=null && i.pair.pair!=i) Debug.LogError("error");
 			if (i.next.prev!=i) Debug.LogError("error");
