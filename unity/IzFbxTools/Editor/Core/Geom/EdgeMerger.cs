@@ -4,7 +4,7 @@ using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace IzFbxTools.Core {
+namespace IzFbxTools.Core.Geom {
 
 /**
  * 指定メッシュのエッジ融合を行うコアモジュール

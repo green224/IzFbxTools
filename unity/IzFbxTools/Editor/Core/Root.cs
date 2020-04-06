@@ -21,6 +21,15 @@ sealed class Root {
 		if (isMergeEdge) edgeMerge(srcMesh, mergeLength);
 	}
 
+	/** アニメーションに対して処理を行う */
+	public static void procAnim(
+		AnimationClip srcAnim,
+		bool isMirrorAnim,
+		bool isVisAnimGen
+	) {
+//		if (isMirrorAnim) edgeMerge(srcMesh, mergeLength);
+	}
+
 	/** FBXに対して処理を行う */
 	public static void procFBX(
 		GameObject srcGObj,
@@ -39,14 +48,14 @@ sealed class Root {
 		// プレファブ全体に対してメッシュ結合を行う
 		if (isCombineMesh) {
 			var dstMesh = getDstMesh( getDstPath(srcGObj, ".asset") );
-			var dstMeshObj = new MeshCombiner.MeshObject() {mesh = dstMesh};
+			var dstMeshObj = new Geom.MeshCombiner.MeshObject() {mesh = dstMesh};
 			dstMeshObj.reset();
-			MeshCombiner.combine(dstObj, dstMeshObj, dstMeshObjName);
+			Geom.MeshCombiner.combine(dstObj, dstMeshObj, dstMeshObjName);
 		}
 
 		// プレファブ全体に対してエッジ融合処理を行う
 		if (isMergeEdge) {
-			var dstMeshes = MeshComponentWrapper.getMeshComponentsInChildren(dstObj);
+			var dstMeshes = Geom.MeshComponentWrapper.getMeshComponentsInChildren(dstObj);
 			foreach (var i in dstMeshes) {
 				var dstMesh = edgeMerge(i.mesh, mergeLength);
 				i.mesh = dstMesh;
@@ -88,7 +97,7 @@ sealed class Root {
 	/** 1メッシュに対してエッジ融合処理を行う */
 	static Mesh edgeMerge(Mesh srcMesh, float mergeLength) {
 		var dstMesh = getDstMesh(srcMesh);
-		EdgeMerger.proc( srcMesh, dstMesh, mergeLength );
+		Geom.EdgeMerger.proc( srcMesh, dstMesh, mergeLength );
 		return dstMesh;
 	}
 

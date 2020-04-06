@@ -61,6 +61,24 @@ sealed class Log {
 		lineCnt += 2 + srcMeshes.Length;
 	}
 
+	/** アニメーションミラーリング処理を完了する */
+	public void endAnimMirror(bool isSuccess, AnimationClip srcClip, AnimationClip dstClip) {
+		sb_.AppendLine(
+			"アニメ左右反転" + (isSuccess ? "[成功]" : "[失敗]") +
+			" : " + srcClip.name + " → " + dstClip.name
+		);
+		lineCnt += 1;
+	}
+
+	/** Visibilityアニメーション生成処理を完了する */
+	public void endVisAnimGeneration(bool isSuccess, AnimationClip srcClip, AnimationClip dstClip) {
+		sb_.AppendLine(
+			"Visibilityアニメ生成" + (isSuccess ? "[成功]" : "[失敗]") +
+			" : " + srcClip.name + " → " + dstClip.name
+		);
+		lineCnt += 1;
+	}
+
 	/** 最終結果文字列を構築する */
 	public string getResultStr() => sb_.ToString();
 
