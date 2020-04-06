@@ -15,6 +15,8 @@ sealed class Root : EditorWindow {
     TargetTab _tgtTab = new TargetTab();	//!< 目標タイプのタブ
 	PrmBlock_CombineMesh _pb_CombineMesh = new PrmBlock_CombineMesh(true);	//!< パラメータ メッシュ結合
 	PrmBlock_EdgeMerge _pb_EdgeMerge = new PrmBlock_EdgeMerge(true);		//!< パラメータ 輪郭線修正
+	PrmBlock_MirrorAnim _pb_MirrorAnim = new PrmBlock_MirrorAnim(true);		//!< パラメータ アニメーション左右反転
+	PrmBlock_VisAnimGen _pb_VisAnimGen = new PrmBlock_VisAnimGen(true);		//!< パラメータ Visibilityアニメーション生成
 	LogViewer _logViewer = new LogViewer();	//!< ログ表示モジュール
 
 	/** 実行できるか否か */
@@ -39,6 +41,12 @@ sealed class Root : EditorWindow {
 			case TargetTab.Mode.Mesh:{
 				_pb_EdgeMerge.drawGUI();
 				isEnableAny |= _pb_EdgeMerge.isEnable;
+			}break;
+			case TargetTab.Mode.Anim:{
+				_pb_MirrorAnim.drawGUI();
+				_pb_VisAnimGen.drawGUI();
+				isEnableAny |= _pb_MirrorAnim.isEnable;
+				isEnableAny |= _pb_VisAnimGen.isEnable;
 			}break;
 			case TargetTab.Mode.Fbx:{
 				_pb_CombineMesh.drawGUI();
@@ -69,6 +77,8 @@ sealed class Root : EditorWindow {
 					_pb_EdgeMerge.isEnable,
 					_pb_EdgeMerge.mergeLength
 				);
+				break;
+			case TargetTab.Mode.Anim:
 				break;
 			case TargetTab.Mode.Fbx:
 				Core.Root.procFBX(
