@@ -9,16 +9,14 @@ namespace IzFbxTools.Window {
 /**
  * メッシュ結合 に関するパラメータブロック表示モジュール
  */
-sealed class PrmBlock_CombineMesh : PrmBlock_Base {
-
-	public string dstMeshObjName = "Combined";		//!< 結合後のメッシュ名
+[Serializable] sealed class PrmBlock_CombineMesh : PrmBlock_Base<Param.CombineMesh> {
 
 	public PrmBlock_CombineMesh(bool isEnable) : base(isEnable) {}
 
 	/** GUI描画処理 */
 	override public void drawGUI() {
 		using (showIsEnableToggle()) if (isEnable) {
-			dstMeshObjName = EditorGUILayout.TextField( "結合後オブジェクト名", dstMeshObjName );
+			param.dstMeshObjName = EditorGUILayout.TextField( "結合後オブジェクト名", param.dstMeshObjName );
 		}
 	}
 

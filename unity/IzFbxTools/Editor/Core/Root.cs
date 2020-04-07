@@ -9,23 +9,26 @@ namespace IzFbxTools.Core {
 /**
  * 出力処理本体
  */
-sealed class Root {
+static class Root {
 
 	// ------------------------------------- public メンバ --------------------------------------------
 
 	/** メッシュに対して処理を行う */
 	public static void procMesh(
 		Mesh srcMesh,
-		bool isMergeEdge, float mergeLength
+		Param.EdgeMerge edgeMergePrm
 	) {
-		if (isMergeEdge) edgeMerge(srcMesh, mergeLength);
+		if (edgeMergePrm!=null) {
+			var dstMesh = getDstAsset<Mesh>(getDstPath(srcMesh,".asset"));
+			Geom.EdgeMerger.proc( srcMesh, dstMesh, edgeMergePrm.mergeLength );
+		}
 	}
 
 	/** アニメーションに対して処理を行う */
 	public static void procAnim(
 		AnimationClip srcAnim,
-		bool isMirrorAnim,
-		bool isVisAnimGen
+		Param.MirrorAnimGenerator mirrorAnimPrm,
+		Param.VisibilityAnimGenerator visAnimPrm
 	) {
 //		if (isMirrorAnim) edgeMerge(srcMesh, mergeLength);
 	}
@@ -33,8 +36,8 @@ sealed class Root {
 	/** FBXに対して処理を行う */
 	public static void procFBX(
 		GameObject srcGObj,
-		bool isCombineMesh, string dstMeshObjName,
-		bool isMergeEdge, float mergeLength
+		Param.CombineMesh combineMeshPrm,
+		Param.EdgeMerge edgeMergePrm
 	) {
 		// 出力先を読み込む
 //		Debug.Log(PrefabUtility.GetPrefabType( srcGObj ));throw new SystemException();
@@ -46,26 +49,43 @@ sealed class Root {
 		dstObj.name = name.Substring(0, name.Length - 7);
 
 		// プレファブ全体に対してメッシュ結合を行う
-		if (isCombineMesh) {
-			var dstMesh = getDstMesh( getDstPath(srcGObj, ".asset") );
+		var dstMeshes = new List<Mesh>();
+		if (combineMeshPrm!=null) {
+			var dstMesh = new Mesh();
+			dstMesh.name = combineMeshPrm.dstMeshObjName;
 			var dstMeshObj = new Geom.MeshCombiner.MeshObject() {mesh = dstMesh};
 			dstMeshObj.reset();
-			Geom.MeshCombiner.combine(dstObj, dstMeshObj, dstMeshObjName);
+			Geom.MeshCombiner.combine(dstObj, dstMeshObj, combineMeshPrm.dstMeshObjName);
+			dstMeshes.Add(dstMesh);
 		}
 
 		// プレファブ全体に対してエッジ融合処理を行う
-		if (isMergeEdge) {
-			var dstMeshes = Geom.MeshComponentWrapper.getMeshComponentsInChildren(dstObj);
-			foreach (var i in dstMeshes) {
-				var dstMesh = edgeMerge(i.mesh, mergeLength);
-				i.mesh = dstMesh;
+		if (edgeMergePrm!=null) {
+			foreach (var i in Geom.MeshComponentWrapper.getMeshComponentsInChildren(dstObj)) {
+				// メッシュ結合した物をさらにエッジ融合する場合は、
+				// 最終処理後のMeshのみ保存するようにする
+				if (dstMeshes.Contains( i.mesh )) dstMeshes.Remove(i.mesh);
+
+				var dstMesh = new Mesh();
+				dstMesh.name = i.mesh.name;
+				Geom.EdgeMerger.proc( i.mesh, dstMesh, edgeMergePrm.mergeLength );
+				dstMeshes.Add( i.mesh = dstMesh );
 			}
 		}
 
-		// 出力
+		// 出力先にあるサブアセットを全削除
 		var dstPath = getDstPath(srcGObj, ".prefab");
+		foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(dstPath)) {
+			if (AssetDatabase.IsSubAsset(asset))
+				GameObject.DestroyImmediate(asset, true);
+		}
+
+		// 出力
+		foreach (var i in dstMeshes) AssetDatabase.AddObjectToAsset(i, dstPath);
 		PrefabUtility.SaveAsPrefabAsset(dstObj, dstPath, out var success);
 		GameObject.DestroyImmediate(dstObj);
+//		AssetDatabase.SaveAssets();
+//		AssetDatabase.ImportAsset( dstPath );
 	}
 
 
@@ -74,31 +94,23 @@ sealed class Root {
 	/** 出力先パスを決定する */
 	static string getDstPath(UnityEngine.Object srcObj, string ext) {
 		var srcPath = AssetDatabase.GetAssetPath( srcObj );
-		var srcName = srcObj.name;
-		return
-			srcPath.Substring(
-				0,
-				srcPath.Length - System.IO.Path.GetExtension(srcPath).Length
-			) + " (Optimized)" + srcName + ext;
+		var srcName = srcPath.Substring(
+			0,
+			srcPath.Length - System.IO.Path.GetExtension(srcPath).Length
+		);
+		if (AssetDatabase.IsSubAsset(srcObj)) srcName = srcName + "_" + srcObj.name;
+		return srcName + " (Optimized)" + ext;
 	}
 
-	// Meshの出力先を読み込む
-	static Mesh getDstMesh( Mesh srcMesh ) => getDstMesh( getDstPath(srcMesh, ".asset") );
-	static Mesh getDstMesh( string path ) {
-		var ret = AssetDatabase.LoadAssetAtPath(path, typeof(Mesh)) as Mesh;
+	/** Assetの出力先を読み込む */
+	static T getDstAsset<T>( string path ) where T : UnityEngine.Object, new() {
+		var ret = AssetDatabase.LoadAssetAtPath(path, typeof(T)) as T;
 		if (ret == null) {
-			ret = new Mesh();
+			ret = new T();
 			AssetDatabase.CreateAsset( ret, path );
 		}
 
 		return ret;
-	}
-
-	/** 1メッシュに対してエッジ融合処理を行う */
-	static Mesh edgeMerge(Mesh srcMesh, float mergeLength) {
-		var dstMesh = getDstMesh(srcMesh);
-		Geom.EdgeMerger.proc( srcMesh, dstMesh, mergeLength );
-		return dstMesh;
 	}
 
 

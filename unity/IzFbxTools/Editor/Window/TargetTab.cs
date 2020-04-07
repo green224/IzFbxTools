@@ -9,7 +9,7 @@ namespace IzFbxTools.Window {
 /**
  * 目標を設定するためのタブ
  */
-sealed class TargetTab {
+[Serializable] sealed class TargetTab {
 
 	// 目標タイプ
 	public enum Mode { Fbx, Mesh, Anim }

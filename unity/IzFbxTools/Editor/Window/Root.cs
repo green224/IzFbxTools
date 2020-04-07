@@ -12,12 +12,12 @@ namespace IzFbxTools.Window {
  */
 sealed class Root : EditorWindow {
 
-    TargetTab _tgtTab = new TargetTab();	//!< 目標タイプのタブ
-	PrmBlock_CombineMesh _pb_CombineMesh = new PrmBlock_CombineMesh(true);	//!< パラメータ メッシュ結合
-	PrmBlock_EdgeMerge _pb_EdgeMerge = new PrmBlock_EdgeMerge(true);		//!< パラメータ 輪郭線修正
-	PrmBlock_MirrorAnim _pb_MirrorAnim = new PrmBlock_MirrorAnim(true);		//!< パラメータ アニメーション左右反転
-	PrmBlock_VisAnimGen _pb_VisAnimGen = new PrmBlock_VisAnimGen(true);		//!< パラメータ Visibilityアニメーション生成
-	LogViewer _logViewer = new LogViewer();	//!< ログ表示モジュール
+    [SerializeField] TargetTab _tgtTab = new TargetTab();	//!< 目標タイプのタブ
+	[SerializeField] PrmBlock_CombineMesh _pb_CombineMesh = new PrmBlock_CombineMesh(true);	//!< パラメータ メッシュ結合
+	[SerializeField] PrmBlock_EdgeMerge _pb_EdgeMerge = new PrmBlock_EdgeMerge(true);		//!< パラメータ 輪郭線修正
+	[SerializeField] PrmBlock_MirrorAnim _pb_MirrorAnim = new PrmBlock_MirrorAnim(true);		//!< パラメータ アニメーション左右反転
+	[SerializeField] PrmBlock_VisAnimGen _pb_VisAnimGen = new PrmBlock_VisAnimGen(true);		//!< パラメータ Visibilityアニメーション生成
+	[SerializeField] LogViewer _logViewer = new LogViewer();	//!< ログ表示モジュール
 
 	/** 実行できるか否か */
 	bool isValidParam {get{
@@ -74,8 +74,7 @@ sealed class Root : EditorWindow {
 			case TargetTab.Mode.Mesh:
 				Core.Root.procMesh(
 					_tgtTab.tgtMesh,
-					_pb_EdgeMerge.isEnable,
-					_pb_EdgeMerge.mergeLength
+					_pb_EdgeMerge.paramOrNull
 				);
 				break;
 			case TargetTab.Mode.Anim:
@@ -83,10 +82,8 @@ sealed class Root : EditorWindow {
 			case TargetTab.Mode.Fbx:
 				Core.Root.procFBX(
 					_tgtTab.tgtGObj,
-					_pb_CombineMesh.isEnable,
-					_pb_CombineMesh.dstMeshObjName,
-					_pb_EdgeMerge.isEnable,
-					_pb_EdgeMerge.mergeLength
+					_pb_CombineMesh.paramOrNull,
+					_pb_EdgeMerge.paramOrNull
 				);
 				break;
 			default:throw new SystemException();

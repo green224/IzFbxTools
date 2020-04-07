@@ -9,9 +9,12 @@ namespace IzFbxTools.Window {
 /**
  * パラメータブロック表示モジュールの基底クラス
  */
-abstract class PrmBlock_Base {
+[Serializable]
+abstract class PrmBlock_Base<ParamBody> where ParamBody : class, new() {
 
 	public bool isEnable;		//!< 使用するか否か
+	public ParamBody param = new ParamBody();	//!< パラメータ本体
+	public ParamBody paramOrNull => isEnable ? param : null;	//!< 使用する場合のみnullじゃなくなるparam
 
 	/** 実行できるか否か */
 	virtual public bool isValidParam => true;
