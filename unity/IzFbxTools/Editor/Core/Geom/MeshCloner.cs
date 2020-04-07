@@ -39,9 +39,8 @@ static class MeshCloner {
 		dstMesh.uv8 = srcMesh.uv8;
 		dstMesh.colors = srcMesh.colors;
 
+		dstMesh.subMeshCount = srcMesh.subMeshCount;
 		for (int i=0; i<srcMesh.subMeshCount; ++i)
-			// メッシュによっては、ここで GetTriangles に失敗することがあるようだ。
-			// 原因は不明で、多分メッシュが壊れているのだと思う。
 			dstMesh.SetTriangles( srcMesh.GetTriangles(i), i );
 		
 		for (int i=0; i<srcMesh.blendShapeCount; ++i) {
