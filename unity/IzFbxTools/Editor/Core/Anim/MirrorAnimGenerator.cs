@@ -50,16 +50,21 @@ sealed class MirrorAnimGenerator {
 			var newBnd = i;
 
 			// パスを変換
+			bool isLR = false;
+			bool isCenter = false;
 			var path = i.path;
 			{
 				if (path.EndsWith(suffixL)) {
+					isLR = true;
 					path = path.Substring(0,path.Length-2) + suffixR;
 				} else if (path.EndsWith(suffixR)) {
+					isLR = true;
 					path = path.Substring(0,path.Length-2) + suffixL;
 				}
 				path = path.Replace( suffixL+"/", suffixR+"\n/" );
 				path = path.Replace( suffixR+"/", suffixL+"\n/" );
 				path = path.Replace( "\n", "" );
+				isCenter = !isLR && !path.Contains(suffixL+"/") && !path.Contains(suffixL+"/");
 			}
 			newBnd.path = path;
 
@@ -67,12 +72,13 @@ sealed class MirrorAnimGenerator {
 			var newCurve = new AnimationCurve();
 			foreach ( var j in curve.keys){
 				var newkey = j;
-				if (
+				if ( (
 					// 位置をミラー
-					i.propertyName == "m_LocalPosition.x" ||
+					(isLR||isCenter) && i.propertyName == "m_LocalPosition.x"
+				) || (
 					// 回転をミラー
 					i.propertyName == "m_LocalRotation.y" || i.propertyName == "m_LocalRotation.z"
-				) {
+				) ) {
 					newkey.value = -newkey.value;
 					newkey.inTangent = -newkey.inTangent;
 					newkey.outTangent = -newkey.outTangent;
