@@ -30,12 +30,6 @@ sealed class Log {
 	public void beginOneEdgeMerge() {
 		_mergedEdgeCnt = 0;
 		_mergedCornerCnt = 0;
-
-		if ( sb_.Length != 0 ) {
-			sb_.AppendLine("------------------");
-			sb_.AppendLine("");
-			lineCnt += 2;
-		}
 	}
 
 	/** マージしたエッジ数をカウント */
@@ -46,6 +40,7 @@ sealed class Log {
 
 	/** 1メッシュに対してEdgeMerge処理を完了する */
 	public void endOneEdgeMerge(bool isSuccess, Mesh srcMesh, Mesh dstMesh) {
+		drawSepLine();
 		sb_.AppendLine( "エッジ融合" + (isSuccess ? "[成功]" : "[失敗]") + " : " + srcMesh.name + " → " + dstMesh.name );
 		sb_.AppendLine("ポリゴン数: " + srcMesh.triangles.Length/3 + " → " + dstMesh.triangles.Length/3);
 		sb_.AppendLine("溶接エッジ数: " + _mergedEdgeCnt);
@@ -55,6 +50,7 @@ sealed class Log {
 
 	/** メッシュ融合処理を完了する */
 	public void endCombineMesh(bool isSuccess, Mesh[] srcMeshes, Mesh dstMesh) {
+		drawSepLine();
 		sb_.AppendLine( "メッシュ結合" + (isSuccess ? "[成功]" : "[失敗]") );
 		foreach (var i in srcMeshes) sb_.AppendLine( "    " + i.name );
 		sb_.AppendLine( "     → " + dstMesh.name );
@@ -62,19 +58,21 @@ sealed class Log {
 	}
 
 	/** アニメーションミラーリング処理を完了する */
-	public void endAnimMirror(bool isSuccess, AnimationClip srcClip, AnimationClip dstClip) {
+	public void endAnimMirror(bool isSuccess, AnimationClip srcClip) {
+		drawSepLine();
 		sb_.AppendLine(
 			"アニメ左右反転" + (isSuccess ? "[成功]" : "[失敗]") +
-			" : " + srcClip.name + " → " + dstClip.name
+			" : " + srcClip.name
 		);
 		lineCnt += 1;
 	}
 
 	/** Visibilityアニメーション生成処理を完了する */
-	public void endVisAnimGeneration(bool isSuccess, AnimationClip srcClip, AnimationClip dstClip) {
+	public void endVisAnimGeneration(bool isSuccess, AnimationClip srcClip) {
+		drawSepLine();
 		sb_.AppendLine(
 			"Visibilityアニメ生成" + (isSuccess ? "[成功]" : "[失敗]") +
-			" : " + srcClip.name + " → " + dstClip.name
+			" : " + srcClip.name
 		);
 		lineCnt += 1;
 	}
@@ -89,6 +87,14 @@ sealed class Log {
 	
 	System.Text.StringBuilder sb_ = new System.Text.StringBuilder();
 	int _mergedEdgeCnt, _mergedCornerCnt;
+
+	void drawSepLine() {
+		if ( sb_.Length != 0 ) {
+			sb_.AppendLine("------------------");
+			sb_.AppendLine("");
+			lineCnt += 2;
+		}
+	}
 
 
 	// --------------------------------------------------------------------------------------------------

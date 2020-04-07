@@ -60,6 +60,10 @@ static class VisibilityAnimGenerator {
 			var keys = AnimationUtility.GetObjectReferenceCurve(srcClip, i);
 			AnimationUtility.SetObjectReferenceCurve(dstClip, i, keys);
 		}
+
+		// ログの生成
+		var log = Log.instance;
+		log.endVisAnimGeneration( true, srcClip );
 	}
 
 }

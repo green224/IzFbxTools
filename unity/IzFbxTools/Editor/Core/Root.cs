@@ -35,11 +35,7 @@ sealed class Root {
 		
 		if (mirrorAnimPrm!=null) {
 			var dstAnim = new AnimationClip();
-			new Anim.MirrorAnimGenerator(
-				mirrorAnimPrm.suffixL,
-				mirrorAnimPrm.suffixR,
-				mirrorAnimPrm.shiftCycleOffset
-			).proc( srcAnim, dstAnim );
+			new Anim.MirrorAnimGenerator(mirrorAnimPrm).proc( srcAnim, dstAnim );
 			srcAnim = dstAnim;
 		}
 		if (visAnimPrm!=null) {
@@ -61,52 +57,160 @@ sealed class Root {
 		var name = dstObj.name;
 		dstObj.name = name.Substring(0, name.Length - 7);
 
-		// プレファブ全体に対してメッシュ結合を行う
+
+		// 出力先を取得する処理
+		var dstPath = getDstPath(srcGObj, ".prefab");
+		_oldSubassets = AssetDatabase.LoadAllAssetsAtPath(dstPath);
+
+		// 共通処理部分
 		var dstMeshes = new List<Mesh>();
-		if (combineMeshPrm!=null) {
-			var dstMesh = new Mesh();
-			dstMesh.name = combineMeshPrm.dstMeshObjName;
-			var dstMeshObj = new Geom.MeshCombiner.MeshObject() {mesh = dstMesh};
-			dstMeshObj.reset();
-			Geom.MeshCombiner.combine(dstObj, dstMeshObj, combineMeshPrm.dstMeshObjName);
-			dstMeshes.Add(dstMesh);
-		}
+		var dstAnims = new List<AnimationClip>();
+		Func<bool,string,Action<Mesh>,Mesh> procCmn_Mesh = (isLast,dstName,procBody) => {
+			var dstMesh = getDstSubasset<Mesh>(isLast, dstName);
+			procBody(dstMesh);
+			if (isLast) dstMeshes.Add(dstMesh);
+			return dstMesh;
+		};
+		Func<bool,string,Action<AnimationClip>,AnimationClip> procCmn_Anim = (isLast,dstName,procBody) => {
+			var dstAnim = getDstSubasset<AnimationClip>(isLast, dstName);
+			procBody(dstAnim);
+			dstAnims.Add(dstAnim);
+			return dstAnim;
+		};
 
-		// プレファブ全体に対してエッジ融合処理を行う
-		if (edgeMergePrm!=null) {
-			foreach (var i in Geom.MeshComponentWrapper.getMeshComponentsInChildren(dstObj)) {
-				// メッシュ結合した物をさらにエッジ融合する場合は、
-				// 最終処理後のMeshのみ保存するようにする
-				if (dstMeshes.Contains( i.mesh )) dstMeshes.Remove(i.mesh);
+		{// FBXに含まれるメッシュに対する処理を行う
+			var proc4Meshes = new List<List<Action<bool>>>();
 
-				var dstMesh = new Mesh();
-				dstMesh.name = i.mesh.name;
-				Geom.EdgeMerger.proc( i.mesh, dstMesh, edgeMergePrm.mergeLength );
-				dstMeshes.Add( i.mesh = dstMesh );
+			// プレファブ全体に対してメッシュ結合を行う
+			if (combineMeshPrm!=null) {
+				var procs = new List<Action<bool>>();
+				procs.Add( isLast => procCmn_Mesh(
+					isLast, combineMeshPrm.dstMeshObjName, dstMesh => {
+						var dstMeshObj = new Geom.MeshCombiner.MeshObject() {mesh = dstMesh};
+						dstMeshObj.reset();
+						Geom.MeshCombiner.combine(dstObj, dstMeshObj, combineMeshPrm.dstMeshObjName);
+					}
+				) );
+				proc4Meshes.Add(procs);
+			}
+
+			// 個別処理部分
+			if (edgeMergePrm!=null) {
+				var procs = new List<Action<bool>>();
+				procs.Add( isLast => {
+					foreach (var i in Geom.MeshComponentWrapper.getMeshComponentsInChildren(dstObj)) {
+						procCmn_Mesh(
+							isLast, i.mesh.name,
+							dstMesh => {
+								Geom.EdgeMerger.proc(i.mesh, dstMesh, edgeMergePrm.mergeLength);
+								i.mesh = dstMesh;
+							}
+						);
+					}
+				} );
+				proc4Meshes.Add(procs);
+			}
+
+			for (int i=0; i<proc4Meshes.Count; ++i) {
+				foreach (var j in proc4Meshes[i]) j( i == proc4Meshes.Count-1 );
 			}
 		}
 
-		// 出力先にあるサブアセットを全削除
-		var dstPath = getDstPath(srcGObj, ".prefab");
-		foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(dstPath)) {
-			if (AssetDatabase.IsSubAsset(asset))
-				GameObject.DestroyImmediate(asset, true);
+		{// FBXに含まれるアニメーションに対する処理を行う
+			// 元アニメーションを羅列
+			var srcAnims = new List<(AnimationClip clip, bool isNeedMirror)>();
+			var srcPath = AssetDatabase.GetAssetPath(srcGObj);
+			foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(srcPath)) {
+				var a = asset as AnimationClip;
+				if (a==null || !AssetDatabase.IsSubAsset(a)) continue;
+				srcAnims.Add((a,true));
+			}
+
+			// ミラーリング対象か否かを判定しておく
+			var mrrAnimGen = mirrorAnimPrm==null
+				? null : new Anim.MirrorAnimGenerator(mirrorAnimPrm);
+			if (mrrAnimGen!=null) for (int i=0; i<srcAnims.Count; ++i) {
+				var a = srcAnims[i];
+				if (!a.isNeedMirror) continue;
+
+				var isL = mrrAnimGen.isNameL( a.clip.name );
+				var isR = mrrAnimGen.isNameR( a.clip.name );
+				if (!isL && !isR) {
+					srcAnims[i] = (a.clip, false);
+					continue;
+				}
+
+				var mrrName = mrrAnimGen.mirrorName( a.clip.name );
+				for (int j=i+1; j<srcAnims.Count; ++j) {
+					var b = srcAnims[j];
+					if (!b.isNeedMirror) continue;
+					if (b.clip.name == mrrName) {
+						srcAnims[i] = (a.clip, false);
+						b = (srcAnims[j].clip, false);
+						break;
+					}
+				}
+			}
+
+			// 全アニメーションに対して処理を行う
+			foreach (var i in srcAnims) {
+				var srcAnim = i.clip;
+				if (visAnimPrm!=null) {
+					srcAnim = procCmn_Anim(
+						true, srcAnim.name,
+						dstAnim => Anim.VisibilityAnimGenerator.proc(srcAnim, dstAnim, visAnimPrm.regexPattern)
+					);
+				}
+				if (i.isNeedMirror && mrrAnimGen!=null) {
+					srcAnim = procCmn_Anim(
+						true, mrrAnimGen.mirrorName(srcAnim.name),
+						dstAnim => mrrAnimGen.proc( srcAnim, dstAnim )
+					);
+				}
+			}
 		}
 
-		// 出力
+		// 出力先にある未保存対象のサブアセットを全削除
+		foreach (var i in AssetDatabase.LoadAllAssetsAtPath(dstPath)) {
+			if (!AssetDatabase.IsSubAsset(i)) continue;
+			if (dstMeshes.Contains(i) || dstAnims.Contains(i)) continue;
+			GameObject.DestroyImmediate(i, true);
+		}
+
+		// アセットが何もない状態だとサブアセットを保存できないので、何もな時には先に保存しておく。
+		// ただし保存する際にはサブアセットを保存した後じゃないと正常に保存できない・・・
+		// なので最後にももう一度保存する。
 		if (AssetDatabase.GetMainAssetTypeAtPath(dstPath) == null) {
-			// アセットが何もない状態だとサブアセットを保存できないので、何もな時には先に保存しておく。
-			// ただし保存する際にはサブアセットを保存した後じゃないと正常に保存できない・・・
-			// なので最後にももう一度保存する。
 			PrefabUtility.SaveAsPrefabAsset(dstObj, dstPath, out var __success);
 		}
-		foreach (var i in dstMeshes) AssetDatabase.AddObjectToAsset(i, dstPath);
+
+		// アセットを保存
+		foreach (var i in dstMeshes) {
+			if (_oldSubassets.Contains(i)) continue;		// 既に保存済みの場合は何もしない
+			AssetDatabase.AddObjectToAsset(i, dstPath);
+		}
+		foreach (var i in dstAnims) {
+			if (_oldSubassets.Contains(i)) continue;		// 既に保存済みの場合は何もしない
+			AssetDatabase.AddObjectToAsset(i, dstPath);
+		}
 		PrefabUtility.SaveAsPrefabAsset(dstObj, dstPath, out var success);
 		GameObject.DestroyImmediate(dstObj);
 	}
 
 
 	// ------------------------------------- private メンバ --------------------------------------------
+
+	/** 出力先に既に配置されているサブアセット類。途中計算用キャッシュ */
+	UnityEngine.Object[] _oldSubassets;
+
+	/** 出力先のアセットを取得する */
+	T getDstSubasset<T>( bool isLast, string name ) where T : UnityEngine.Object, new() {
+		if (isLast) foreach (var i in _oldSubassets)
+			if (i.GetType()==typeof(T) && i.name==name) return (T)i;
+		var ret = new T();
+		ret.name = name;
+		return ret;
+	}
 
 	/** 出力先パスを決定する */
 	string getDstPath(UnityEngine.Object srcObj, string ext) {
