@@ -48,7 +48,7 @@ static class VisibilityAnimGenerator {
 			// 指定されたVisibility変更ターゲットで、カーブを生成する
 			foreach (System.Text.RegularExpressions.Match j in rgxVisBone.Matches(i.path)) {
 				var binding = new EditorCurveBinding();
-				binding.path = j.Groups[0].Value;
+				binding.path = j.Groups[1].Value;
 				binding.type = typeof(SkinnedMeshRenderer);
 				binding.propertyName = "m_Enabled";
 				AnimationUtility.SetEditorCurve(dstClip, binding, ac);

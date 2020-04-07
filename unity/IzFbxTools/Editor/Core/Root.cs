@@ -31,17 +31,26 @@ sealed class Root {
 
 	/** アニメーションに対して処理を行う */
 	public void procAnim( AnimationClip srcAnim ) {
+		var dstPath = getDstPath(srcAnim,".asset");
+		
 		if (mirrorAnimPrm!=null) {
-			var dstAnim = getDstAsset<AnimationClip>(getDstPath(srcAnim,".asset"));
+			var dstAnim = new AnimationClip();
 			new Anim.MirrorAnimGenerator(
 				mirrorAnimPrm.suffixL,
 				mirrorAnimPrm.suffixR,
 				mirrorAnimPrm.shiftCycleOffset
 			).proc( srcAnim, dstAnim );
+			srcAnim = dstAnim;
 		}
 		if (visAnimPrm!=null) {
-			var dstAnim = getDstAsset<AnimationClip>(getDstPath(srcAnim,".asset"));
+			var dstAnim = new AnimationClip();
 			Anim.VisibilityAnimGenerator.proc( srcAnim, dstAnim, visAnimPrm.regexPattern );
+			srcAnim = dstAnim;
+		}
+
+		{// 最後に出力先にコピーする
+			var dstAnim = getDstAsset<AnimationClip>(dstPath);
+			Anim.AnimCloner.clone( srcAnim, dstAnim );
 		}
 	}
 
