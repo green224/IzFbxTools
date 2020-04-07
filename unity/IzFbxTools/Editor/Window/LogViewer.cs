@@ -7,7 +7,7 @@ namespace IzFbxTools.Window {
 /**
  * ログ表示モジュール
  */
-sealed class LogViewer {
+[Serializable] sealed class LogViewer {
 
 	/** GUI描画処理 */
 	public void drawGUI() {
@@ -24,7 +24,7 @@ sealed class LogViewer {
 		}
 	}
 
-	Vector2 _logScrollPos = new Vector2(0, 0);
+	[SerializeField] Vector2 _logScrollPos = new Vector2(0, 0);
 }
 
 }
