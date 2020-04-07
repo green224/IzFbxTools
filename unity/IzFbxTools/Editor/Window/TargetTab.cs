@@ -27,6 +27,8 @@ namespace IzFbxTools.Window {
 		}
 	}}
 
+	public string dstAssetName = "{0} (generated)";	//!< 出力先アセット名のフォーマット文字列
+
 	/** GUI描画処理 */
 	public void drawGUI() {
         using (new EditorGUILayout.VerticalScope("box")) {
@@ -49,6 +51,14 @@ namespace IzFbxTools.Window {
 					break;
 				default:throw new SystemException();
 			}
+
+			dstAssetName = EditorGUILayout.TextField(
+				new GUIContent(
+					"出力先アセット名",
+					"出力先アセット名のフォーマット文字列"
+				),
+				dstAssetName
+			);
 		}
 	}
 

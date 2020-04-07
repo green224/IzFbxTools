@@ -17,13 +17,6 @@ namespace IzFbxTools.Window {
 	/** GUI描画処理 */
 	override public void drawGUI() {
 		using (showIsEnableToggle()) if (isEnable) {
-			param.dstAnimSuffix = EditorGUILayout.TextField(
-				new GUIContent(
-					"出力後サフィックス",
-					"変換後のアニメーションクリップ名に付けるサフィックス"
-				),
-				param.dstAnimSuffix
-			);
 			param.regexPattern = EditorGUILayout.TextField(
 				new GUIContent(
 					"判定パターン",

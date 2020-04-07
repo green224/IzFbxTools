@@ -9,15 +9,20 @@ namespace IzFbxTools.Core {
 /**
  * 出力処理本体
  */
-static class Root {
+sealed class Root {
 
 	// ------------------------------------- public メンバ --------------------------------------------
 
+	public string dstAssetName;		//!< 出力先アセット名のフォーマット文字列
+
+	// 変換パラメータ群
+	public Param.EdgeMerge edgeMergePrm;
+	public Param.CombineMesh combineMeshPrm;
+	public Param.MirrorAnimGenerator mirrorAnimPrm;
+	public Param.VisibilityAnimGenerator visAnimPrm;
+
 	/** メッシュに対して処理を行う */
-	public static void procMesh(
-		Mesh srcMesh,
-		Param.EdgeMerge edgeMergePrm
-	) {
+	public void procMesh( Mesh srcMesh ) {
 		if (edgeMergePrm!=null) {
 			var dstMesh = getDstAsset<Mesh>(getDstPath(srcMesh,".asset"));
 			Geom.EdgeMerger.proc( srcMesh, dstMesh, edgeMergePrm.mergeLength );
@@ -25,25 +30,24 @@ static class Root {
 	}
 
 	/** アニメーションに対して処理を行う */
-	public static void procAnim(
-		AnimationClip srcAnim,
-		Param.MirrorAnimGenerator mirrorAnimPrm,
-		Param.VisibilityAnimGenerator visAnimPrm
-	) {
-//		if (isMirrorAnim) edgeMerge(srcMesh, mergeLength);
+	public void procAnim( AnimationClip srcAnim ) {
+		if (mirrorAnimPrm!=null) {
+			var dstAnim = getDstAsset<AnimationClip>(getDstPath(srcAnim,".asset"));
+			new Anim.MirrorAnimGenerator(
+				mirrorAnimPrm.suffixL,
+				mirrorAnimPrm.suffixR,
+				mirrorAnimPrm.shiftCycleOffset
+			).proc( srcAnim, dstAnim );
+		}
+		if (visAnimPrm!=null) {
+			var dstAnim = getDstAsset<AnimationClip>(getDstPath(srcAnim,".asset"));
+			Anim.VisibilityAnimGenerator.proc( srcAnim, dstAnim, visAnimPrm.regexPattern );
+		}
 	}
 
 	/** FBXに対して処理を行う */
-	public static void procFBX(
-		GameObject srcGObj,
-		Param.CombineMesh combineMeshPrm,
-		Param.EdgeMerge edgeMergePrm
-	) {
+	public void procFBX( GameObject srcGObj ) {
 		// 出力先を読み込む
-//		Debug.Log(PrefabUtility.GetPrefabType( srcGObj ));throw new SystemException();
-//		var srcPath = AssetDatabase.GetAssetPath( srcGObj );
-//		var dstObj = PrefabUtility.LoadPrefabContents( srcPath );
-//		PrefabUtility.UnpackPrefabInstance(dstObj, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
 		var dstObj = GameObject.Instantiate( srcGObj );
 		var name = dstObj.name;
 		dstObj.name = name.Substring(0, name.Length - 7);
@@ -81,29 +85,33 @@ static class Root {
 		}
 
 		// 出力
+		if (AssetDatabase.GetMainAssetTypeAtPath(dstPath) == null) {
+			// アセットが何もない状態だとサブアセットを保存できないので、何もな時には先に保存しておく。
+			// ただし保存する際にはサブアセットを保存した後じゃないと正常に保存できない・・・
+			// なので最後にももう一度保存する。
+			PrefabUtility.SaveAsPrefabAsset(dstObj, dstPath, out var __success);
+		}
 		foreach (var i in dstMeshes) AssetDatabase.AddObjectToAsset(i, dstPath);
 		PrefabUtility.SaveAsPrefabAsset(dstObj, dstPath, out var success);
 		GameObject.DestroyImmediate(dstObj);
-//		AssetDatabase.SaveAssets();
-//		AssetDatabase.ImportAsset( dstPath );
 	}
 
 
 	// ------------------------------------- private メンバ --------------------------------------------
 
 	/** 出力先パスを決定する */
-	static string getDstPath(UnityEngine.Object srcObj, string ext) {
+	string getDstPath(UnityEngine.Object srcObj, string ext) {
 		var srcPath = AssetDatabase.GetAssetPath( srcObj );
 		var srcName = srcPath.Substring(
 			0,
 			srcPath.Length - System.IO.Path.GetExtension(srcPath).Length
 		);
 		if (AssetDatabase.IsSubAsset(srcObj)) srcName = srcName + "_" + srcObj.name;
-		return srcName + " (Optimized)" + ext;
+		return string.Format(dstAssetName, srcName) + ext;
 	}
 
 	/** Assetの出力先を読み込む */
-	static T getDstAsset<T>( string path ) where T : UnityEngine.Object, new() {
+	T getDstAsset<T>( string path ) where T : UnityEngine.Object, new() {
 		var ret = AssetDatabase.LoadAssetAtPath(path, typeof(T)) as T;
 		if (ret == null) {
 			ret = new T();

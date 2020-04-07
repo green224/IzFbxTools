@@ -19,6 +19,9 @@ sealed class Root : EditorWindow {
 	[SerializeField] PrmBlock_VisAnimGen _pb_VisAnimGen = new PrmBlock_VisAnimGen(true);		//!< パラメータ Visibilityアニメーション生成
 	[SerializeField] LogViewer _logViewer = new LogViewer();	//!< ログ表示モジュール
 
+	/** 処理を行う本体モジュール */
+	Core.Root _procCore = new Core.Root();
+
 	/** 実行できるか否か */
 	bool isValidParam {get{
 		if (_tgtTab.target==null) return false;
@@ -70,23 +73,17 @@ sealed class Root : EditorWindow {
 	void build() {
 		Core.Log.instance.reset();
 
+		_procCore.dstAssetName = _tgtTab.dstAssetName;
+		_procCore.edgeMergePrm = _pb_EdgeMerge.paramOrNull;
+		_procCore.combineMeshPrm = _pb_CombineMesh.paramOrNull;
+		_procCore.mirrorAnimPrm = _pb_MirrorAnim.paramOrNull;
+		_procCore.visAnimPrm = _pb_VisAnimGen.paramOrNull;
+
 		switch (_tgtTab.mode) {
-			case TargetTab.Mode.Mesh:
-				Core.Root.procMesh(
-					_tgtTab.tgtMesh,
-					_pb_EdgeMerge.paramOrNull
-				);
-				break;
-			case TargetTab.Mode.Anim:
-				break;
-			case TargetTab.Mode.Fbx:
-				Core.Root.procFBX(
-					_tgtTab.tgtGObj,
-					_pb_CombineMesh.paramOrNull,
-					_pb_EdgeMerge.paramOrNull
-				);
-				break;
-			default:throw new SystemException();
+		case TargetTab.Mode.Mesh: _procCore.procMesh(_tgtTab.tgtMesh); break;
+		case TargetTab.Mode.Anim: _procCore.procAnim(_tgtTab.tgtAnim); break;
+		case TargetTab.Mode.Fbx : _procCore.procFBX(_tgtTab.tgtGObj); break;
+		default:throw new SystemException();
 		}
 
 		AssetDatabase.SaveAssets();
