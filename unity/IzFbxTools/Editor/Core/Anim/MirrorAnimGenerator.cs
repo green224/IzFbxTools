@@ -14,13 +14,10 @@ sealed class MirrorAnimGenerator {
 	public string suffixL, suffixR;
 	public bool shiftCycleOffset;		//!< 再生位置を半分シフトする。必ず右足から移動したい等の理由で使用する
 
-	public MirrorAnimGenerator(
-		string suffixL, string suffixR,
-		bool shiftCycleOffset
-	) {
-		this.suffixL = suffixL;
-		this.suffixR = suffixR;
-		this.shiftCycleOffset = shiftCycleOffset;
+	public MirrorAnimGenerator(Param.MirrorAnimGenerator param) {
+		suffixL = param.suffixL;
+		suffixR = param.suffixR;
+		shiftCycleOffset = param.shiftCycleOffset;
 	}
 
 	public void proc( AnimationClip srcClip, AnimationClip dstClip ) {
@@ -94,12 +91,16 @@ sealed class MirrorAnimGenerator {
 			var keys = AnimationUtility.GetObjectReferenceCurve(srcClip, i);
 			AnimationUtility.SetObjectReferenceCurve(dstClip, i, keys);
 		}
+
+		// ログの生成
+		var log = Log.instance;
+		log.endVisAnimGeneration( true, srcClip );
 	}
 
-	/** 指定のアニメーション名の反転後名を取得 */
+	/** 指定のアニメーション・ボーン名の反転後名を取得 */
 	public string mirrorName( string src ) {
-		if (isEqualLastStr(src, suffixL)) return src.Substring(0,src.Length-1)+"R";
-		if (isEqualLastStr(src, suffixR)) return src.Substring(0,src.Length-1)+"L";
+		if (isNameL(src)) return src.Substring(0,src.Length-suffixL.Length)+suffixR;
+		if (isNameR(src)) return src.Substring(0,src.Length-suffixR.Length)+suffixL;
 		return src+"_Mirror";
 	}
 
@@ -116,6 +117,11 @@ sealed class MirrorAnimGenerator {
 			return srcPath.Substring(0,idx+1) + mirrorName(src.name) + ".anim";
 		}
 	}
+
+	// 指定のアニメーション・ボーン名が、左右アニメーション・ボーンかどうかをチェックする
+	public bool isNameL(string name) => isEqualLastStr(name, suffixL);
+	public bool isNameR(string name) => isEqualLastStr(name, suffixR);
+
 
 
 	static bool isEqualLastStr(string tgt, string last) {

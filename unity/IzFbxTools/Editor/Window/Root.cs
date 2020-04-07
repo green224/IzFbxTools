@@ -54,6 +54,8 @@ sealed class Root : EditorWindow {
 			case TargetTab.Mode.Fbx:{
 				_pb_CombineMesh.drawGUI();
 				_pb_EdgeMerge.drawGUI();
+				_pb_MirrorAnim.drawGUI();
+				_pb_VisAnimGen.drawGUI();
 				isEnableAny |= _pb_CombineMesh.isEnable;
 				isEnableAny |= _pb_EdgeMerge.isEnable;
 			}break;
