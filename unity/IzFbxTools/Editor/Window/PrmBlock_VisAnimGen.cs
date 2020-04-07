@@ -20,7 +20,7 @@ namespace IzFbxTools.Window {
 			param.regexPattern = EditorGUILayout.TextField(
 				new GUIContent(
 					"判定パターン",
-					"Visibilityアニメーションに変換する元となるボーンの名前を判定するための正規表現。この正規表現でマッチしたグループ0が、対象オブジェクト名となる。SkinnedMeshRendererのEnable値へ、boneのScale.x値がそのまま転写される。"
+					"Visibilityアニメーションに変換する元となるボーンの名前を判定するための正規表現。この正規表現でマッチしたグループ1が、対象オブジェクト名となる。SkinnedMeshRendererのEnable値へ、boneのScale.x値がそのまま転写される。"
 				),
 				param.regexPattern
 			);

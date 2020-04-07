@@ -41,8 +41,8 @@ sealed class MirrorAnimGenerator {
 		dstClip.ClearCurves();
 
 		// カーブをミラーリングする
-		foreach (var i in AnimationUtility.GetCurveBindings(dstClip)) {
-			var curve = AnimationUtility.GetEditorCurve( dstClip, i );
+		foreach (var i in AnimationUtility.GetCurveBindings( srcClip )) {
+			var curve = AnimationUtility.GetEditorCurve( srcClip, i );
 //			Debug.Log( "path:"+i.path);
 //			Debug.Log( "propertyName:"+i.propertyName);
 //			Debug.Log( "type:"+i.type);
@@ -50,14 +50,11 @@ sealed class MirrorAnimGenerator {
 			var newBnd = i;
 
 			// パスを変換
-			bool isLR = false;
 			var path = i.path;
 			{
 				if (path.EndsWith(suffixL)) {
-					isLR = true;
 					path = path.Substring(0,path.Length-2) + suffixR;
 				} else if (path.EndsWith(suffixR)) {
-					isLR = true;
 					path = path.Substring(0,path.Length-2) + suffixL;
 				}
 				path = path.Replace( suffixL+"/", suffixR+"\n/" );
@@ -70,13 +67,12 @@ sealed class MirrorAnimGenerator {
 			var newCurve = new AnimationCurve();
 			foreach ( var j in curve.keys){
 				var newkey = j;
-				if ( (
+				if (
 					// 位置をミラー
-					isLR && i.propertyName == "m_LocalPosition.x"
-				) || (
+					i.propertyName == "m_LocalPosition.x" ||
 					// 回転をミラー
 					i.propertyName == "m_LocalRotation.y" || i.propertyName == "m_LocalRotation.z"
-				) ) {
+				) {
 					newkey.value = -newkey.value;
 					newkey.inTangent = -newkey.inTangent;
 					newkey.outTangent = -newkey.outTangent;

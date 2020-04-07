@@ -13,10 +13,10 @@ namespace IzFbxTools.Window {
 sealed class Root : EditorWindow {
 
     [SerializeField] TargetTab _tgtTab = new TargetTab();	//!< 目標タイプのタブ
-	[SerializeField] PrmBlock_CombineMesh _pb_CombineMesh = new PrmBlock_CombineMesh(true);	//!< パラメータ メッシュ結合
-	[SerializeField] PrmBlock_EdgeMerge _pb_EdgeMerge = new PrmBlock_EdgeMerge(true);		//!< パラメータ 輪郭線修正
-	[SerializeField] PrmBlock_MirrorAnim _pb_MirrorAnim = new PrmBlock_MirrorAnim(true);		//!< パラメータ アニメーション左右反転
-	[SerializeField] PrmBlock_VisAnimGen _pb_VisAnimGen = new PrmBlock_VisAnimGen(true);		//!< パラメータ Visibilityアニメーション生成
+	[SerializeField] PrmBlock_CombineMesh _pb_CombineMesh = new PrmBlock_CombineMesh(false);	//!< パラメータ メッシュ結合
+	[SerializeField] PrmBlock_EdgeMerge _pb_EdgeMerge = new PrmBlock_EdgeMerge(false);			//!< パラメータ 輪郭線修正
+	[SerializeField] PrmBlock_MirrorAnim _pb_MirrorAnim = new PrmBlock_MirrorAnim(false);		//!< パラメータ アニメーション左右反転
+	[SerializeField] PrmBlock_VisAnimGen _pb_VisAnimGen = new PrmBlock_VisAnimGen(false);		//!< パラメータ Visibilityアニメーション生成
 	[SerializeField] LogViewer _logViewer = new LogViewer();	//!< ログ表示モジュール
 
 	/** 処理を行う本体モジュール */
