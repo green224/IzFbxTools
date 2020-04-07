@@ -11,17 +11,19 @@ namespace IzFbxTools.Core.Anim {
  */
 sealed class MirrorAnimGenerator {
 
-	string suffixL, suffixR;
+	public string suffixL, suffixR;
+	public bool shiftCycleOffset;		//!< 再生位置を半分シフトする。必ず右足から移動したい等の理由で使用する
 
-	public MirrorAnimGenerator(string suffixL, string suffixR) {
+	public MirrorAnimGenerator(
+		string suffixL, string suffixR,
+		bool shiftCycleOffset
+	) {
 		this.suffixL = suffixL;
 		this.suffixR = suffixR;
+		this.shiftCycleOffset = shiftCycleOffset;
 	}
 
-	public void proc(
-		AnimationClip srcClip, AnimationClip dstClip,
-		bool shiftCycleOffset		//!< 再生位置を半分シフトする。必ず右足から移動したい等の理由で使用する
-	) {
+	public void proc( AnimationClip srcClip, AnimationClip dstClip ) {
 		AnimCloner.clone( srcClip, dstClip );
 
 		// 名前をミラー化
