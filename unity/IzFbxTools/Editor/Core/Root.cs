@@ -35,12 +35,12 @@ sealed class Root {
 		
 		if (mirrorAnimPrm!=null) {
 			var dstAnim = new AnimationClip();
-			new Anim.MirrorAnimGenerator(mirrorAnimPrm).proc( srcAnim, dstAnim );
+			new Anim.MirrorAnimGenerator(mirrorAnimPrm).proc(srcAnim, dstAnim);
 			srcAnim = dstAnim;
 		}
 		if (visAnimPrm!=null) {
 			var dstAnim = new AnimationClip();
-			Anim.VisibilityAnimGenerator.proc( srcAnim, dstAnim, visAnimPrm.regexPattern );
+			new Anim.VisibilityAnimGenerator(visAnimPrm).proc(srcAnim, dstAnim);
 			srcAnim = dstAnim;
 		}
 
@@ -78,45 +78,10 @@ sealed class Root {
 			return dstAnim;
 		};
 
-		{// FBXに含まれるメッシュに対する処理を行う
-			var proc4Meshes = new List<List<Action<bool>>>();
-
-			// プレファブ全体に対してメッシュ結合を行う
-			if (combineMeshPrm!=null) {
-				var procs = new List<Action<bool>>();
-				procs.Add( isLast => procCmn_Mesh(
-					isLast, combineMeshPrm.dstMeshObjName, dstMesh => {
-						var dstMeshObj = new Geom.MeshCombiner.MeshObject() {mesh = dstMesh};
-						dstMeshObj.reset();
-						Geom.MeshCombiner.combine(dstObj, dstMeshObj, combineMeshPrm.dstMeshObjName);
-					}
-				) );
-				proc4Meshes.Add(procs);
-			}
-
-			// 個別処理部分
-			if (edgeMergePrm!=null) {
-				var procs = new List<Action<bool>>();
-				procs.Add( isLast => {
-					foreach (var i in Geom.MeshComponentWrapper.getMeshComponentsInChildren(dstObj)) {
-						procCmn_Mesh(
-							isLast, i.mesh.name,
-							dstMesh => {
-								Geom.EdgeMerger.proc(i.mesh, dstMesh, edgeMergePrm.mergeLength);
-								i.mesh = dstMesh;
-							}
-						);
-					}
-				} );
-				proc4Meshes.Add(procs);
-			}
-
-			for (int i=0; i<proc4Meshes.Count; ++i) {
-				foreach (var j in proc4Meshes[i]) j( i == proc4Meshes.Count-1 );
-			}
-		}
-
-		{// FBXに含まれるアニメーションに対する処理を行う
+		// 先にFBXに含まれるアニメーションに対する処理を行う
+		var mrrAnimGen = mirrorAnimPrm==null ? null : new Anim.MirrorAnimGenerator(mirrorAnimPrm);
+		var visAnimGen = visAnimPrm==null ? null : new Anim.VisibilityAnimGenerator(visAnimPrm);
+		{
 			// 元アニメーションを羅列
 			var srcAnims = new List<(AnimationClip clip, bool isNeedMirror)>();
 			var srcPath = AssetDatabase.GetAssetPath(srcGObj);
@@ -127,8 +92,6 @@ sealed class Root {
 			}
 
 			// ミラーリング対象か否かを判定しておく
-			var mrrAnimGen = mirrorAnimPrm==null
-				? null : new Anim.MirrorAnimGenerator(mirrorAnimPrm);
 			if (mrrAnimGen!=null) for (int i=0; i<srcAnims.Count; ++i) {
 				var a = srcAnims[i];
 				if (!a.isNeedMirror) continue;
@@ -158,7 +121,7 @@ sealed class Root {
 				if (visAnimPrm!=null) {
 					srcAnim = procCmn_Anim(
 						true, srcAnim.name,
-						dstAnim => Anim.VisibilityAnimGenerator.proc(srcAnim, dstAnim, visAnimPrm.regexPattern)
+						dstAnim => visAnimGen.proc(srcAnim, dstAnim)
 					);
 				}
 				if (i.isNeedMirror && mrrAnimGen!=null) {
@@ -167,6 +130,48 @@ sealed class Root {
 						dstAnim => mrrAnimGen.proc( srcAnim, dstAnim )
 					);
 				}
+			}
+		}
+
+		{// FBXに含まれるメッシュに対する処理を行う
+			var proc4Meshes = new List<List<Action<bool>>>();
+
+			// プレファブ全体に対してメッシュ結合を行う
+			if (combineMeshPrm!=null) {
+				var procs = new List<Action<bool>>();
+				procs.Add( isLast => procCmn_Mesh(
+					isLast, combineMeshPrm.dstMeshObjName, dstMesh => {
+						var dstMeshObj = new Geom.MeshCombiner.MeshObject() {mesh = dstMesh};
+						dstMeshObj.reset();
+						Geom.MeshCombiner.combine(
+							dstObj, dstMeshObj,
+							combineMeshPrm.dstMeshObjName,
+							visAnimGen?.visTargetObjNames?.ToArray()
+						);
+					}
+				) );
+				proc4Meshes.Add(procs);
+			}
+
+			// 個別処理部分
+			if (edgeMergePrm!=null) {
+				var procs = new List<Action<bool>>();
+				procs.Add( isLast => {
+					foreach (var i in Geom.MeshComponentWrapper.getMeshComponentsInChildren(dstObj)) {
+						procCmn_Mesh(
+							isLast, i.mesh.name,
+							dstMesh => {
+								Geom.EdgeMerger.proc(i.mesh, dstMesh, edgeMergePrm.mergeLength);
+								i.mesh = dstMesh;
+							}
+						);
+					}
+				} );
+				proc4Meshes.Add(procs);
+			}
+
+			for (int i=0; i<proc4Meshes.Count; ++i) {
+				foreach (var j in proc4Meshes[i]) j( i == proc4Meshes.Count-1 );
 			}
 		}
 

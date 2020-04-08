@@ -19,12 +19,21 @@ namespace IzFbxTools.Core.Anim {
  * 指定されたオブジェクト名のものについているSkinnedMeshRendererのEnableが
  * 切り替わるアニメーションが生成される。
  */
-static class VisibilityAnimGenerator {
+sealed class VisibilityAnimGenerator {
 
-	public static void proc(
-		AnimationClip srcClip, AnimationClip dstClip,
-		string regexVisBonePtn		//!< 対象ボーン特定用正規表現
-	) {
+	public string regexVisBonePtn;			//!< 対象ボーン特定用正規表現
+
+	/**
+	 * 表示状態を切り替える対象のオブジェクト名のリスト。
+	 * 処理を行った際に自動的に更新されるログ。参照専用。
+	 */
+	public readonly HashSet<string> visTargetObjNames = new HashSet<string>();
+
+	public VisibilityAnimGenerator( Param.VisibilityAnimGenerator param ) {
+		regexVisBonePtn = param.regexPattern;
+	}
+
+	public void proc(AnimationClip srcClip, AnimationClip dstClip) {
 		AnimCloner.clone( srcClip, dstClip );
 
 		// 対象ボーン特定用正規表現
@@ -49,6 +58,7 @@ static class VisibilityAnimGenerator {
 			foreach (System.Text.RegularExpressions.Match j in rgxVisBone.Matches(i.path)) {
 				var binding = new EditorCurveBinding();
 				binding.path = j.Groups[1].Value;
+				visTargetObjNames.Add(j.Groups[1].Value);
 				binding.type = typeof(SkinnedMeshRenderer);
 				binding.propertyName = "m_Enabled";
 				AnimationUtility.SetEditorCurve(dstClip, binding, ac);
