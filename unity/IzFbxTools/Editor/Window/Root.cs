@@ -17,6 +17,7 @@ sealed class Root : EditorWindow {
 	[SerializeField] PrmBlock_EdgeMerge _pb_EdgeMerge = new PrmBlock_EdgeMerge(false);			//!< パラメータ 輪郭線修正
 	[SerializeField] PrmBlock_MirrorAnim _pb_MirrorAnim = new PrmBlock_MirrorAnim(false);		//!< パラメータ アニメーション左右反転
 	[SerializeField] PrmBlock_VisAnimGen _pb_VisAnimGen = new PrmBlock_VisAnimGen(false);		//!< パラメータ Visibilityアニメーション生成
+	[SerializeField] PrmBlock_FixDefaultBone _pb_FixDefaultBone = new PrmBlock_FixDefaultBone(false);		//!< パラメータ ボーン初期姿勢修正
 	[SerializeField] LogViewer _logViewer = new LogViewer();	//!< ログ表示モジュール
 
 	/** 処理を行う本体モジュール */
@@ -56,8 +57,12 @@ sealed class Root : EditorWindow {
 				_pb_EdgeMerge.drawGUI();
 				_pb_MirrorAnim.drawGUI();
 				_pb_VisAnimGen.drawGUI();
+				_pb_FixDefaultBone.drawGUI();
 				isEnableAny |= _pb_CombineMesh.isEnable;
 				isEnableAny |= _pb_EdgeMerge.isEnable;
+				isEnableAny |= _pb_MirrorAnim.isEnable;
+				isEnableAny |= _pb_VisAnimGen.isEnable;
+				isEnableAny |= _pb_FixDefaultBone.isEnable;
 			}break;
 			default:throw new SystemException();
 		}
@@ -80,6 +85,7 @@ sealed class Root : EditorWindow {
 		_procCore.combineMeshPrm = _pb_CombineMesh.paramOrNull;
 		_procCore.mirrorAnimPrm = _pb_MirrorAnim.paramOrNull;
 		_procCore.visAnimPrm = _pb_VisAnimGen.paramOrNull;
+		_procCore.fixDefaultBonePrm = _pb_FixDefaultBone.paramOrNull;
 
 		switch (_tgtTab.mode) {
 		case TargetTab.Mode.Mesh: _procCore.procMesh(_tgtTab.tgtMesh); break;

@@ -29,6 +29,7 @@ namespace IzFbxTools.Window {
 
 
 	override protected string name => "Visibilityアニメ変換";		//!< 表示名
+	override protected string tooltips => "ボーンアニメーションから、Visibilityアニメーションを生成する。BlenderなどからVisibilityアニメーションをFBX経由で読み込みたい場合などに使用する。";		//!< 詳細説明
 
 }
 

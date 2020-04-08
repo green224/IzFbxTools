@@ -22,6 +22,7 @@ namespace IzFbxTools.Window {
 
 
 	override protected string name => "トゥーン輪郭線断裂修正";		//!< 表示名
+	override protected string tooltips => "Solid辺で輪郭線表示が途切れてしまう問題に対して、輪郭線が途切れないようにMeshに対応を行う";		//!< 詳細説明
 
 }
 

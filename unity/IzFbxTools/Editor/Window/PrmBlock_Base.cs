@@ -24,7 +24,8 @@ abstract class PrmBlock_Base<ParamBody> where ParamBody : class, new() {
 
 
 
-	abstract protected string name {get;}		//!< 表示名
+	abstract protected string name {get;}			//!< 表示名
+	virtual protected string tooltips => null;		//!< 詳細説明
 
 	protected PrmBlock_Base(bool isEnable) {
 		this.isEnable = isEnable;
@@ -33,7 +34,7 @@ abstract class PrmBlock_Base<ParamBody> where ParamBody : class, new() {
 	/** 使用するか否かのトグル表示 */
 	protected IDisposable showIsEnableToggle() {
 		var ret = new GUILayout.VerticalScope("box");
-		isEnable = EditorGUILayout.ToggleLeft( name, isEnable );
+		isEnable = EditorGUILayout.ToggleLeft( new GUIContent(name,tooltips), isEnable );
 		return new MergeDispose( new IDisposable[] { ret, new IndentScope() } );
 	}
 
