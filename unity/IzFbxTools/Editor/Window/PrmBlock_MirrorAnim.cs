@@ -7,7 +7,7 @@ using System.Linq;
 namespace IzFbxTools.Window {
 
 /**
- * トゥーン用輪郭線修正 に関するパラメータブロック表示モジュール
+ * 左右反転したアニメーションを生成する
  */
 [Serializable] sealed class PrmBlock_MirrorAnim : PrmBlock_Base<Param.MirrorAnimGenerator> {
 

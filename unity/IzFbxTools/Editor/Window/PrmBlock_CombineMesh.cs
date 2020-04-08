@@ -22,6 +22,7 @@ namespace IzFbxTools.Window {
 
 
 	override protected string name => "単一メッシュに結合";		//!< 表示名
+	override protected string tooltips => "含まれる複数のMeshを、表示状態を維持したまま1つのメッシュに結合する";		//!< 詳細説明
 
 }
 

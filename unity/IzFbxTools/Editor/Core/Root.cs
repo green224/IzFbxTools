@@ -20,6 +20,7 @@ sealed class Root {
 	public Param.CombineMesh combineMeshPrm;
 	public Param.MirrorAnimGenerator mirrorAnimPrm;
 	public Param.VisibilityAnimGenerator visAnimPrm;
+	public Param.FixDefaultBone fixDefaultBonePrm;
 
 	/** メッシュに対して処理を行う */
 	public void procMesh( Mesh srcMesh ) {
@@ -173,6 +174,39 @@ sealed class Root {
 			for (int i=0; i<proc4Meshes.Count; ++i) {
 				foreach (var j in proc4Meshes[i]) j( i == proc4Meshes.Count-1 );
 			}
+		}
+
+		// ボーンの初期姿勢をメッシュの初期姿勢になるように修正する
+		if (fixDefaultBonePrm!=null) {
+			var bindPoseMap = new Dictionary<Transform,Matrix4x4>();
+			foreach (var i in Geom.MeshComponentWrapper.getMeshComponentsInChildren(dstObj)) {
+				if (i.skMeshRdr != null) {
+					for (int j=0; j<i.skMeshRdr.bones.Length; ++j) {
+						var b = i.skMeshRdr.bones[j];
+						if (b!=null) bindPoseMap[b] = i.mesh.bindposes[j];
+					}
+				}
+			}
+
+			// 共通の最親ボーンを見つける
+			var rootBone = bindPoseMap.First().Key;
+			for (var i=rootBone; bindPoseMap.ContainsKey(i); i=i.parent) rootBone=i;
+
+			// ルートボーンから順に、ボーン初期姿勢をフィックス
+			Action<Transform, Matrix4x4> oneProc = null;
+			oneProc = (bone, parentL2W) => {
+				if ( bindPoseMap.TryGetValue(bone, out var bindpose) ) {
+					var bindMtx = (bindpose*parentL2W).inverse;
+					bone.localRotation = bindMtx.rotation;
+					bone.localPosition = new Vector3(bindMtx.m03, bindMtx.m13, bindMtx.m23);
+					bone.localScale = bindMtx.lossyScale;
+//					parentL2W = bindpose.inverse;
+					parentL2W = bone.localToWorldMatrix;
+
+					for (int i=0; i<bone.childCount; ++i) oneProc(bone.GetChild(i), parentL2W);
+				}
+			};
+			oneProc(rootBone, rootBone.parent?.localToWorldMatrix??Matrix4x4.identity);
 		}
 
 		// 出力先にある未保存対象のサブアセットを全削除
