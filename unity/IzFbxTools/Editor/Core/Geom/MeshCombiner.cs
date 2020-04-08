@@ -171,13 +171,15 @@ static class MeshCombiner {
 	static public bool combine(
 		GameObject targetGO,
 		MeshObject dst,
-		string dstMeshObjName	//!< 結合後に生成されるプレファブ内の、メッシュ表示用のGameObjectの名前
+		string dstMeshObjName,			//!< 結合後に生成されるプレファブ内の、メッシュ表示用のGameObjectの名前
+		string[] ignoreList = null		//!< 結合対象外とするオブジェクト名のリスト
 	) {
 
 		// 結合元となるMesh情報を収集する。最も子供のTransformのものから順に格納する。
 		var srcMeshes = MeshComponentWrapper.getMeshComponentsInChildren(targetGO);
 		var srcDataLst = srcMeshes
 			.Where( i => i.mesh.blendShapeCount==0 )	// BlendShapeがあるものは結合対象外
+			.Where( i => ignoreList==null || !ignoreList.Contains(i.gameObject.name) )	// 無視リストに指定されているオブジェクトは結合対象外
 			.Select( i => (data:MeshObject.generate(i), trans:i.transform) ).ToArray();
 
 		// 結合したメッシュを生成
