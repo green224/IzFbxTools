@@ -24,10 +24,34 @@ sealed class VisibilityAnimGenerator {
 	public string regexVisBonePtn;			//!< 対象ボーン特定用正規表現
 
 	/**
-	 * 表示状態を切り替える対象のオブジェクト名のリスト。
-	 * 処理を行った際に自動的に更新されるログ。参照専用。
+	 * まとめて表示状態を変更するボーンがある場合に、
+	 * アニメーション操作対象自体を1つにまとめてしまう場合の、
+	 * まとめた結果のオブジェクト名を取得する処理。
+	 * まとめる必要が無い場合は、nullを指定しておけばよい。
 	 */
-	public readonly HashSet<string> visTargetObjNames = new HashSet<string>();
+	public Func<string> getCombinedName = null;
+
+	/**
+	 * 表示状態を切り替える対象のオブジェクト情報
+	 * 処理を行った結果ログ。参照専用。
+	 */
+	public sealed class VisTargetObjInfo {
+		/**
+		 * 表示状態変更対象のオブジェクト名。
+		 * これが1つの場合はそのままアニメーション対象として処理されるが、
+		 * 複数ある場合は一つに纏めて出力される可能性がある。
+		 */
+		public List<string> srcObjNames = new List<string>();
+
+		/**
+		 * 表示状態変更対象のオブジェクトが複数ある場合に、
+		 * アニメーション対象を1つにまとめてしまう場合の、
+		 * まとめた結果のオブジェクト名。
+		 * まとめる必要が愛場合はnullとなる。
+		 */
+		public string combinedTgtName = null;
+	}
+	public readonly Dictionary<string, VisTargetObjInfo> visTargetObjInfos = new Dictionary<string, VisTargetObjInfo>();
 
 	public VisibilityAnimGenerator( Param.VisibilityAnimGenerator param ) {
 		regexVisBonePtn = param.regexPattern;
@@ -49,19 +73,36 @@ sealed class VisibilityAnimGenerator {
 			if ( !rgxVisBone.IsMatch(i.path) ) {
 				// 対象外ボーンはそのままコピー
 				AnimationUtility.SetEditorCurve(dstClip, i, ac);
+				continue;
 			}
 
 			// 対象ボーンの m_LocalScale.x をフラグとする
 			if (i.propertyName != "m_LocalScale.x") continue;
 
+			// このVis対象に対しての処理が初めてか否かの判定
+			var m = rgxVisBone.Match(i.path);
+			var caps = m.Groups[1].Captures;
+			VisTargetObjInfo vtoi;
+			bool is1stProcBone;
+			if (is1stProcBone = !visTargetObjInfos.TryGetValue(m.Value, out vtoi)) {
+				vtoi = new VisTargetObjInfo();
+				foreach (System.Text.RegularExpressions.Capture j in caps) vtoi.srcObjNames.Add(j.Value);
+				visTargetObjInfos[m.Value] = vtoi;
+			}
+
 			// 指定されたVisibility変更ターゲットで、カーブを生成する
-			foreach (System.Text.RegularExpressions.Match j in rgxVisBone.Matches(i.path)) {
+			Action<string> makeCurve = path => {
 				var binding = new EditorCurveBinding();
-				binding.path = j.Groups[1].Value;
-				visTargetObjNames.Add(j.Groups[1].Value);
+				binding.path = path;
 				binding.type = typeof(SkinnedMeshRenderer);
 				binding.propertyName = "m_Enabled";
 				AnimationUtility.SetEditorCurve(dstClip, binding, ac);
+			};
+			if (getCombinedName == null || caps.Count == 1) {
+				foreach (System.Text.RegularExpressions.Capture j in caps) makeCurve( j.Value );
+			} else {
+				if (is1stProcBone) vtoi.combinedTgtName = getCombinedName();
+				makeCurve( vtoi.combinedTgtName );
 			}
 		}
 
