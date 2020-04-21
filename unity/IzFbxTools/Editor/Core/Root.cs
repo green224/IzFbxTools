@@ -83,6 +83,12 @@ sealed class Root {
 		var mrrAnimGen = mirrorAnimPrm==null ? null : new Anim.MirrorAnimGenerator(mirrorAnimPrm);
 		var visAnimGen = visAnimPrm==null ? null : new Anim.VisibilityAnimGenerator(visAnimPrm);
 		{
+			// メッシュ結合をする場合は、Visibilityアニメ生成処理の中で、複数Vis変更カーブを結合する処理を入れておく
+			if (combineMeshPrm != null) {
+				int cnbCnt = 0;
+				visAnimGen.getCombinedName = () => combineMeshPrm.dstMeshObjName + " (" + ++cnbCnt + ")";
+			}
+
 			// 元アニメーションを羅列
 			var srcAnims = new List<(AnimationClip clip, bool isNeedMirror)>();
 			var srcPath = AssetDatabase.GetAssetPath(srcGObj);
@@ -140,17 +146,24 @@ sealed class Root {
 			// プレファブ全体に対してメッシュ結合を行う
 			if (combineMeshPrm!=null) {
 				var procs = new List<Action<bool>>();
-				procs.Add( isLast => procCmn_Mesh(
-					isLast, combineMeshPrm.dstMeshObjName, dstMesh => {
+				procs.Add( isLast => {
+					// ここの処理は複雑なため、procCmn_Meshは使わずに実装する
+					Func<string, Geom.MeshCombiner.MeshObject> getDstMesh = meshName => {
+						var dstMesh = getDstSubasset<Mesh>(isLast, meshName);
 						var dstMeshObj = new Geom.MeshCombiner.MeshObject() {mesh = dstMesh};
 						dstMeshObj.reset();
-						Geom.MeshCombiner.combine(
-							dstObj, dstMeshObj,
-							combineMeshPrm.dstMeshObjName,
-							visAnimGen?.visTargetObjNames?.ToArray()
-						);
-					}
-				) );
+						return dstMeshObj;
+					};
+					var combineRet = Geom.MeshCombiner.combine(
+						dstObj, getDstMesh,
+						combineMeshPrm.dstMeshObjName,
+						visAnimGen?.visTargetObjInfos?.Select(
+							i => ( i.Value.srcObjNames.ToArray(), i.Value.combinedTgtName )
+						).ToArray()
+					);
+					if (isLast)
+						foreach (var i in combineRet) dstMeshes.Add(i);
+				} );
 				proc4Meshes.Add(procs);
 			}
 

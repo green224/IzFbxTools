@@ -225,6 +225,70 @@ static class MeshCombiner {
 		return true;
 	}
 
+	/** 結合処理。GameObject全体に対して処理を行う。dstMeshは初期化される */
+	static public Mesh[] combine(
+		GameObject targetGO,
+		Func<string, MeshObject> getDstMesh,	//!< メッシュ名から、メッシュを生成する処理
+		string defaultDstName,					//!< 結合後に生成されるプレファブ内の、メッシュ表示用のGameObjectの名前の、デフォルト値。packingListsに乗っていないオブジェクトの結合後オブジェクト名がこれになる。
+		(string[] srcNames, string dstName)[] packiungLists = null			//!< 同時結合対象とするオブジェクト名のリスト。ここに乗っていないオブジェクトも1つにまとめられる
+	) {
+		var packInfos = new List<(string name, List<string> iList)>();
+
+		{// 全体結合用の結合情報を構築
+			var a = new List<string>();
+			foreach (var i in packiungLists) foreach (var j in i.srcNames) {
+				if ( !a.Contains(j) ) a.Add(j);
+			}
+			packInfos.Add(( defaultDstName, a ));
+		}
+
+		// パッキング対象がある場合は、それらの無視リストも生成する
+		if ( packiungLists != null ) {
+
+			// まずパッキング対象リストを、必要があるの物だけに限定して再構築
+			var validPLsts = packiungLists.Where( i => !string.IsNullOrEmpty(i.dstName) ).ToArray();
+
+			// パッキング対象リストを、無視リストへ変換する
+			var ignoreList = validPLsts.Select( i => (src:i, iLst:new List<string>()) ).ToArray();
+			var srcMeshes = MeshComponentWrapper.getMeshComponentsInChildren(targetGO);
+			foreach ( var i in srcMeshes ) {
+				var name = i.gameObject.name;
+				foreach (var j in ignoreList) {
+					if ( !j.src.srcNames.Contains(name) ) j.iLst.Add(name);
+				}
+			}
+
+			// 無視リストから、結合情報を生成
+//			int cmbCnt = 0;
+			foreach (var i in ignoreList)
+				packInfos.Add((
+//					string.Join( ",", i.iLst ),		// 結果オブジェクト名は、とりあえず","で結合対象をくくったものにする
+//					defaultDstName + " (" + (++cmbCnt) + ")",
+					i.src.dstName,
+					i.iLst
+				));
+		}
+
+		// パッキング結果がさらにパックされてしまわないように、
+		// それぞれの無視リストに、パック結果名も含めておく
+		foreach (var i in packInfos) foreach (var j in packInfos) i.iList.Add( j.name );
+
+		// それぞれに対して結合処理を行う
+		var ret = new List<Mesh>();
+		foreach (var i in packInfos) {
+			var mesh = getDstMesh(i.name);
+			combine(
+				targetGO,
+				mesh,
+				i.name,
+				i.iList.ToArray()
+			);
+			ret.Add(mesh.mesh);
+		}
+
+		return ret.ToArray();
+	}
+
 
 	// ------------------------------------- private メンバ --------------------------------------------
 
