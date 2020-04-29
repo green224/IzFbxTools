@@ -32,6 +32,14 @@ sealed class VisibilityAnimGenerator {
 	public Func<string> getCombinedName = null;
 
 	/**
+	 * アニメーション適応先のレンダラーオブジェクト名が分かっている際は、
+	 * ここにその名前を指定しておく事ができる。
+	 * Visibilityターゲット名の前方・後方一致機能を使用する場合は、
+	 * ここに情報をちゃんと設定しておくこと。でないと部分一致機能は使用できない。
+	 */
+	public List<string> visTargetableNames = null;
+
+	/**
 	 * 表示状態を切り替える対象のオブジェクト情報
 	 * 処理を行った結果ログ。参照専用。
 	 */
@@ -50,6 +58,16 @@ sealed class VisibilityAnimGenerator {
 		 * まとめる必要が愛場合はnullとなる。
 		 */
 		public string combinedTgtName = null;
+
+		/** その表示状態変更対象のオブジェクト名が、部分一致フォーマットであるか否か */
+		static public bool isPartialMatchFmt(string srcObjName) => srcObjName.Length!=0 && (srcObjName[0]=='*' || srcObjName.Last()=='*');
+
+		/** 表示状態変更対象のオブジェクト名の、部分一致判定 */
+		static public bool isPartialMatch(string srcObjName, string tgtName) {
+			if (srcObjName[0]=='*') return tgtName.EndsWith(srcObjName.Substring(1));
+			if (srcObjName.Last()=='*') return tgtName.StartsWith(srcObjName.Substring(0,srcObjName.Length-1));
+			return srcObjName == tgtName;
+		}
 	}
 	public readonly Dictionary<string, VisTargetObjInfo> visTargetObjInfos = new Dictionary<string, VisTargetObjInfo>();
 
@@ -86,7 +104,16 @@ sealed class VisibilityAnimGenerator {
 			bool is1stProcBone;
 			if (is1stProcBone = !visTargetObjInfos.TryGetValue(m.Value, out vtoi)) {
 				vtoi = new VisTargetObjInfo();
-				foreach (System.Text.RegularExpressions.Capture j in caps) vtoi.srcObjNames.Add(j.Value);
+				foreach (System.Text.RegularExpressions.Capture j in caps) {
+					if (VisTargetObjInfo.isPartialMatchFmt( j.Value )) {
+						// Vis操作対象オブジェクト名に部分一致フォーマットが指定されている
+						if (visTargetableNames == null) Debug.LogError("visTargetableNamesが設定されていません");
+						else foreach (var k in visTargetableNames)
+							if (VisTargetObjInfo.isPartialMatch(j.Value, k)) vtoi.srcObjNames.Add(k);
+					} else {
+						vtoi.srcObjNames.Add(j.Value);
+					}
+				}
 				visTargetObjInfos[m.Value] = vtoi;
 			}
 
@@ -99,7 +126,7 @@ sealed class VisibilityAnimGenerator {
 				AnimationUtility.SetEditorCurve(dstClip, binding, ac);
 			};
 			if (getCombinedName == null || caps.Count == 1) {
-				foreach (System.Text.RegularExpressions.Capture j in caps) makeCurve( j.Value );
+				foreach (var j in vtoi.srcObjNames) makeCurve( j );
 			} else {
 				if (is1stProcBone) vtoi.combinedTgtName = getCombinedName();
 				makeCurve( vtoi.combinedTgtName );
