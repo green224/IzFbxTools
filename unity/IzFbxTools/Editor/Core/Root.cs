@@ -89,6 +89,14 @@ sealed class Root {
 				visAnimGen.getCombinedName = () => combineMeshPrm.dstMeshObjName + " (" + ++cnbCnt + ")";
 			}
 
+			{// Vis表示対象となりうるオブジェクト名をあらかじめ設定しておく
+				visAnimGen.visTargetableNames = new List<string>();
+				foreach (var j in dstObj.GetComponentsInChildren<SkinnedMeshRenderer>())
+					visAnimGen.visTargetableNames.Add( j.gameObject.name );
+				foreach (var j in dstObj.GetComponentsInChildren<MeshRenderer>())
+					visAnimGen.visTargetableNames.Add( j.gameObject.name );
+			}
+
 			// 元アニメーションを羅列
 			var srcAnims = new List<(AnimationClip clip, bool isNeedMirror)>();
 			var srcPath = AssetDatabase.GetAssetPath(srcGObj);

@@ -11,7 +11,7 @@ namespace IzFbxTools.Param {
  */
 [Serializable]
 sealed class VisibilityAnimGenerator {
-	public string regexPattern = @"\[vis:(?:(?:,?)([\w\-\\]+))+\]";		//!< 対象ボーン名判定パターン
+	public string regexPattern = @"\[vis:(?:(?:,?)([\w\-\\\.\*]+))+\]";		//!< 対象ボーン名判定パターン
 }
 
 }
