@@ -83,18 +83,20 @@ sealed class Root {
 		var mrrAnimGen = mirrorAnimPrm==null ? null : new Anim.MirrorAnimGenerator(mirrorAnimPrm);
 		var visAnimGen = visAnimPrm==null ? null : new Anim.VisibilityAnimGenerator(visAnimPrm);
 		{
-			// メッシュ結合をする場合は、Visibilityアニメ生成処理の中で、複数Vis変更カーブを結合する処理を入れておく
-			if (combineMeshPrm != null) {
-				int cnbCnt = 0;
-				visAnimGen.getCombinedName = () => combineMeshPrm.dstMeshObjName + " (" + ++cnbCnt + ")";
-			}
+			if (visAnimGen!=null) {
+				// メッシュ結合をする場合は、Visibilityアニメ生成処理の中で、複数Vis変更カーブを結合する処理を入れておく
+				if (combineMeshPrm != null) {
+					int cnbCnt = 0;
+					visAnimGen.getCombinedName = () => combineMeshPrm.dstMeshObjName + " (" + ++cnbCnt + ")";
+				}
 
-			{// Vis表示対象となりうるオブジェクト名をあらかじめ設定しておく
-				visAnimGen.visTargetableNames = new List<string>();
-				foreach (var j in dstObj.GetComponentsInChildren<SkinnedMeshRenderer>())
-					visAnimGen.visTargetableNames.Add( j.gameObject.name );
-				foreach (var j in dstObj.GetComponentsInChildren<MeshRenderer>())
-					visAnimGen.visTargetableNames.Add( j.gameObject.name );
+				{// Vis表示対象となりうるオブジェクト名をあらかじめ設定しておく
+					visAnimGen.visTargetableNames = new List<string>();
+					foreach (var j in dstObj.GetComponentsInChildren<SkinnedMeshRenderer>())
+						visAnimGen.visTargetableNames.Add( j.gameObject.name );
+					foreach (var j in dstObj.GetComponentsInChildren<MeshRenderer>())
+						visAnimGen.visTargetableNames.Add( j.gameObject.name );
+				}
 			}
 
 			// 元アニメーションを羅列
