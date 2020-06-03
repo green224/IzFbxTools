@@ -116,15 +116,16 @@ static class MeshCombiner {
 		}) ).ToArray();
 
 		// UV・カラーの結合
-		to.mesh.uv = uv1.Concat( from.mesh.uv ).ToArray();
-		to.mesh.uv2 = uv2.Concat( from.mesh.uv2 ).ToArray();
-		to.mesh.uv3 = uv3.Concat( from.mesh.uv3 ).ToArray();
-		to.mesh.uv4 = uv4.Concat( from.mesh.uv4 ).ToArray();
-		to.mesh.uv5 = uv5.Concat( from.mesh.uv5 ).ToArray();
-		to.mesh.uv6 = uv6.Concat( from.mesh.uv6 ).ToArray();
-		to.mesh.uv7 = uv7.Concat( from.mesh.uv7 ).ToArray();
-		to.mesh.uv8 = uv8.Concat( from.mesh.uv8 ).ToArray();
-		to.mesh.colors = colors.Concat( from.mesh.colors ).ToArray();
+		var (toVCnt, frmVCnt) = (vertices.Length, from.mesh.vertices.Length);
+		to.mesh.uv = mergeAttr( uv1, from.mesh.uv, toVCnt, frmVCnt ).ToArray();
+		to.mesh.uv2 = mergeAttr( uv2, from.mesh.uv2, toVCnt, frmVCnt ).ToArray();
+		to.mesh.uv3 = mergeAttr( uv3, from.mesh.uv3, toVCnt, frmVCnt ).ToArray();
+		to.mesh.uv4 = mergeAttr( uv4, from.mesh.uv4, toVCnt, frmVCnt ).ToArray();
+		to.mesh.uv5 = mergeAttr( uv5, from.mesh.uv5, toVCnt, frmVCnt ).ToArray();
+		to.mesh.uv6 = mergeAttr( uv6, from.mesh.uv6, toVCnt, frmVCnt ).ToArray();
+		to.mesh.uv7 = mergeAttr( uv7, from.mesh.uv7, toVCnt, frmVCnt ).ToArray();
+		to.mesh.uv8 = mergeAttr( uv8, from.mesh.uv8, toVCnt, frmVCnt ).ToArray();
+		to.mesh.colors = mergeAttr( colors, from.mesh.colors, toVCnt, frmVCnt ).ToArray();
 
 		// ボーンの結合
 		var (bones, fromBoneIdxes) = combineDistinctArray( to.bones, from.bones );
@@ -313,6 +314,15 @@ static class MeshCombiner {
 			}
 		}
 		return (retAry.ToArray(), bIdxMap);
+	}
+
+	/** 頂点カラーやUVをマージする処理 */
+	static IEnumerable<T> mergeAttr<T>(IEnumerable<T> a, IEnumerable<T> b, int aLen, int bLen) where T : new() {
+		if ( ((bLen==0) ^ (bLen==0)) && ((a.Count()==aLen) ^ (b.Count()==bLen)) ) {
+			if ( a.Count() != aLen ) a = new bool[aLen].Select(_=>new T());
+			if ( b.Count() != bLen ) b = new bool[bLen].Select(_=>new T());
+		}
+		return a.Concat(b);
 	}
 
 
