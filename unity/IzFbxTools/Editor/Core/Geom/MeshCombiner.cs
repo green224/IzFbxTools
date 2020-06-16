@@ -318,7 +318,8 @@ static class MeshCombiner {
 
 	/** 頂点カラーやUVをマージする処理 */
 	static IEnumerable<T> mergeAttr<T>(IEnumerable<T> a, IEnumerable<T> b, int aLen, int bLen) where T : new() {
-		if ( ((bLen==0) ^ (bLen==0)) && ((a.Count()==aLen) ^ (b.Count()==bLen)) ) {
+		if ( aLen==0 && bLen==0 || a.Count()==0 && b.Count()==0 ) return new T[0];
+		if ( (a.Count()!=aLen) || (b.Count()!=bLen) ) {
 			if ( a.Count() != aLen ) a = new bool[aLen].Select(_=>new T());
 			if ( b.Count() != bLen ) b = new bool[bLen].Select(_=>new T());
 		}
