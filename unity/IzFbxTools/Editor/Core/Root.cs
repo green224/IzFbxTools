@@ -277,12 +277,18 @@ sealed class Root {
 	/** 出力先パスを決定する */
 	string getDstPath(UnityEngine.Object srcObj, string ext) {
 		var srcPath = AssetDatabase.GetAssetPath( srcObj );
+		var srcFN = System.IO.Path.GetFileName(srcPath);
+		var srcExt = System.IO.Path.GetExtension(srcPath);
 		var srcName = srcPath.Substring(
+			srcPath.Length - srcFN.Length,
+			srcFN.Length - srcExt.Length
+		);
+		var srcDirName = srcPath.Substring(
 			0,
-			srcPath.Length - System.IO.Path.GetExtension(srcPath).Length
+			srcPath.Length - srcFN.Length
 		);
 		if (AssetDatabase.IsSubAsset(srcObj)) srcName = srcName + "_" + srcObj.name;
-		return string.Format(dstAssetName, srcName) + ext;
+		return srcDirName + string.Format(dstAssetName, srcName) + ext;
 	}
 
 	/** Assetの出力先を読み込む */
