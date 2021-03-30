@@ -164,15 +164,24 @@ sealed class Root {
 						dstMeshObj.reset();
 						return dstMeshObj;
 					};
-					var combineRet = Geom.MeshCombiner.combine(
-						dstObj, getDstMesh,
-						combineMeshPrm.dstMeshObjName,
-						visAnimGen?.visTargetObjInfos?.Select(
-							i => ( i.Value.srcObjNames.ToArray(), i.Value.combinedTgtName )
-						).ToArray()
-					);
-					if (isLast)
-						foreach (var i in combineRet) dstMeshes.Add(i);
+					if (visAnimGen == null) {
+						var dstMesh = getDstMesh(combineMeshPrm.dstMeshObjName);
+						Geom.MeshCombiner.combine(
+							dstObj, dstMesh,
+							combineMeshPrm.dstMeshObjName
+						);
+						if (isLast) dstMeshes.Add(dstMesh.mesh);
+					} else {
+						var combineRet = Geom.MeshCombiner.combine(
+							dstObj, getDstMesh,
+							combineMeshPrm.dstMeshObjName,
+							visAnimGen.visTargetObjInfos.Select(
+								i => ( i.Value.srcObjNames.ToArray(), i.Value.combinedTgtName )
+							).ToArray()
+						);
+						if (isLast)
+							foreach (var i in combineRet) dstMeshes.Add(i);
+					}
 				} );
 				proc4Meshes.Add(procs);
 			}
