@@ -103,7 +103,7 @@ static class MeshCombiner {
 		var uv1 = to.mesh.uv;  var uv2 = to.mesh.uv2; var uv3 = to.mesh.uv3; var uv4 = to.mesh.uv4;
 		var uv5 = to.mesh.uv5; var uv6 = to.mesh.uv6; var uv7 = to.mesh.uv7; var uv8 = to.mesh.uv8;
 		var colors = to.mesh.colors;
-		var boneWgt = to.mesh.boneWeights.ToList();
+		var boneWgt = to.mesh.boneWeights;
 
 		// 位置・法線・接線の結合。双方のL2W行列を考慮して結合する
 		var oldToVertCnt = to.mesh.vertexCount;
@@ -131,16 +131,21 @@ static class MeshCombiner {
 		var (bones, fromBoneIdxes) = combineDistinctArray( to.bones, from.bones );
 		to.bones = bones;
 
-		// ボーンウェイトの結合
-		foreach (var i in from.mesh.boneWeights) {
-			var a = i;
-			a.boneIndex0 = fromBoneIdxes[i.boneIndex0];
-			a.boneIndex1 = fromBoneIdxes[i.boneIndex1];
-			a.boneIndex2 = fromBoneIdxes[i.boneIndex2];
-			a.boneIndex3 = fromBoneIdxes[i.boneIndex3];
-			boneWgt.Add(a);
+		{// ボーンウェイトの結合
+			var frmBoneWgts = new List<BoneWeight>();
+			foreach (var i in from.mesh.boneWeights) {
+				var a = i;
+				a.boneIndex0 = fromBoneIdxes[i.boneIndex0];
+				a.boneIndex1 = fromBoneIdxes[i.boneIndex1];
+				a.boneIndex2 = fromBoneIdxes[i.boneIndex2];
+				a.boneIndex3 = fromBoneIdxes[i.boneIndex3];
+				frmBoneWgts.Add(a);
+			}
+			if (boneWgt.Length != toVCnt || frmBoneWgts.Count != frmVCnt) {
+				Debug.LogWarning("スキニングメッシュと非スキニングメッシュを結合しました。これは意図しない結果を生み出す可能性があります");
+			}
+			to.mesh.boneWeights = mergeAttr( boneWgt, frmBoneWgts.ToArray(), toVCnt, frmVCnt ).ToArray();
 		}
-		to.mesh.boneWeights = boneWgt.ToArray();
 
 		// バインドポーズの結合
 		// ここ、何も考えずにバインドポーズを上書きしているが、問題が生じたらなんらかの対処を行う
