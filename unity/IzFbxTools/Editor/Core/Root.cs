@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
@@ -62,6 +62,9 @@ sealed class Root {
 		// 出力先を取得する処理
 		var dstPath = getDstPath(srcGObj, ".prefab");
 		_oldSubassets = AssetDatabase.LoadAllAssetsAtPath(dstPath);
+
+		// 出力先に既にアセットがある場合は、参照をキープするためにIDマップを作成しておく
+		var oldYamlIDMap = _oldSubassets.Length==0 ? null : new YamlParser(dstPath);
 
 		// 共通処理部分
 		var dstMeshes = new List<Mesh>();
@@ -266,6 +269,13 @@ sealed class Root {
 		}
 		PrefabUtility.SaveAsPrefabAsset(dstObj, dstPath, out var success);
 		GameObject.DestroyImmediate(dstObj);
+
+		// アセットを上書きした場合は、テキスト編集でIDを復元する
+		if (oldYamlIDMap != null) {
+			AssetDatabase.SaveAssets();
+			oldYamlIDMap.repairNameIDMap();
+			AssetDatabase.ImportAsset(oldYamlIDMap.filepath);
+		}
 	}
 
 
